@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
 import 'package:cantillana_incidencias/router/app_router.dart';
+import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,20 +21,21 @@ class CantillanaApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'Cantillana Incidencias',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A5C9A), // Azul municipal
-          brightness: Brightness.light,
-        ),
-      ),
+
+      // ── TEMA CLARO: Rojo del escudo con fondos verde oscuro ───────────────────
+      theme: CantillanaTheme.lightTheme,
+
+      // ── TEMA OSCURO: Adaptación oscura con rojo ───────────────────────────
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A5C9A),
+          seedColor: CantillanaTheme.rojo,
           brightness: Brightness.dark,
         ),
       ),
+
+      // ── OPCIÓN ALTERNATIVA: Descomentar para usar tema DORADO ─────────────
+      // theme: CantillanaTheme.lightThemeDorado,
       themeMode: ThemeMode.system,
       routerConfig: AppRouter.router,
     );

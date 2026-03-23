@@ -1,5 +1,6 @@
 // ─────────────────────────────────────────
 // lib/screens/citizen_home_screen.dart
+// VERSIÓN CORREGIDA - Colores directos sin mezclas
 // ─────────────────────────────────────────
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
 import 'package:cantillana_incidencias/controllers/IncidentController.dart';
 import 'package:cantillana_incidencias/models/incidentModel.dart';
+import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 
 class CitizenHomeScreen extends StatefulWidget {
   const CitizenHomeScreen({super.key});
@@ -43,11 +45,10 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
+      backgroundColor: CantillanaTheme.verdeOscuro,
       appBar: AppBar(
-        backgroundColor: cs.primary,
+        backgroundColor: CantillanaTheme.rojo,
         title: _showSearch
             ? _SearchBar(
                 controller: _searchController,
@@ -72,6 +73,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
                 : IconButton(
                     icon: Badge(
                       isLabelVisible: _controller.hasActiveFilters,
+                      backgroundColor: CantillanaTheme.dorado,
                       child: const Icon(Icons.filter_list, color: Colors.white),
                     ),
                     tooltip: 'Filtrar',
@@ -96,13 +98,11 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
         return Column(
           children: [
             _StatsHeader(controller: _controller),
-            _FilterChips(
-              controller: _controller,
-            ), // ← categoría + mis incidencias
+            _FilterChips(controller: _controller),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _controller.refresh,
-                color: cs.primary,
+                color: CantillanaTheme.rojo,
                 child: _controller.incidents.isEmpty
                     ? _EmptyView(
                         hasFilters: _controller.hasActiveFilters,
@@ -121,6 +121,8 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
         ),
         child: FloatingActionButton.extended(
           onPressed: () => context.push('/create-incident'),
+          backgroundColor: CantillanaTheme.rojo,
+          foregroundColor: Colors.white,
           icon: const Icon(Icons.add),
           label: const Text('Nuevo Reporte'),
         ),
@@ -131,6 +133,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen>
   void _showFilterSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      backgroundColor: CantillanaTheme.verdeOscuro,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -147,18 +150,53 @@ class _AppBarTitle extends StatelessWidget {
   const _AppBarTitle();
 
   @override
-  Widget build(BuildContext context) => const Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
     children: [
-      Text(
-        'Incidencias',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 18,
+      // Escudo pequeño
+      Container(
+        width: 32,
+        height: 32,
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
           color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: CantillanaTheme.dorado.withOpacity(0.6),
+            width: 1.5,
+          ),
+        ),
+        child: ClipOval(
+          child: Image.asset(
+            'assets/cantillan.png',
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Icon(
+              Icons.location_city,
+              size: 16,
+              color: CantillanaTheme.rojo,
+            ),
+          ),
         ),
       ),
-      Text('Cantillana', style: TextStyle(fontSize: 12, color: Colors.white70)),
+      const SizedBox(width: 12),
+      const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Incidencias',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: Colors.white,
+            ),
+          ),
+          Text(
+            'Cantillana',
+            style: TextStyle(fontSize: 12, color: Colors.white70),
+          ),
+        ],
+      ),
     ],
   );
 }
@@ -203,9 +241,8 @@ class _StatsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: cs.primary,
+      color: CantillanaTheme.rojo,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Row(
         children: [
@@ -256,6 +293,7 @@ class _StatChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CantillanaTheme.dorado, width: 2),
       ),
       child: Column(
         children: [
@@ -279,7 +317,7 @@ class _StatChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
-// Chips de filtro (categorías + Mis incidencias)
+// Chips de filtro
 // ─────────────────────────────────────────
 
 class _FilterChips extends StatelessWidget {
@@ -288,31 +326,36 @@ class _FilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Obx(() {
       final categories = controller.availableCategories;
-      return SizedBox(
+      return Container(
+        color: CantillanaTheme.verdeOscuro,
         height: 50,
         child: ListView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           children: [
-            // ── Chip especial "Mis incidencias" ──
+            // Chip "Mis incidencias"
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: FilterChip(
                 avatar: Icon(
                   Icons.person_pin_outlined,
                   size: 16,
-                  color: controller.onlyMine.value ? Colors.white : cs.primary,
+                  color: controller.onlyMine.value
+                      ? Colors.white
+                      : CantillanaTheme.rojo,
                 ),
                 label: const Text('Mis incidencias'),
                 selected: controller.onlyMine.value,
-                selectedColor: cs.primary,
+                selectedColor: CantillanaTheme.rojo,
+                backgroundColor: Color(0xFF1B5E20),
                 checkmarkColor: Colors.white,
+                side: BorderSide(color: CantillanaTheme.dorado, width: 2),
                 labelStyle: TextStyle(
-                  color: controller.onlyMine.value ? Colors.white : null,
+                  color: controller.onlyMine.value
+                      ? Colors.white
+                      : Colors.white70,
                   fontWeight: controller.onlyMine.value
                       ? FontWeight.bold
                       : FontWeight.normal,
@@ -322,18 +365,18 @@ class _FilterChips extends StatelessWidget {
               ),
             ),
 
-            // Divisor visual
+            // Divisor
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               child: VerticalDivider(
-                color: Colors.grey.shade300,
+                color: CantillanaTheme.dorado,
                 width: 1,
-                thickness: 1,
+                thickness: 2,
               ),
             ),
             const SizedBox(width: 4),
 
-            // ── Chips de categoría ───────────────
+            // Chips de categoría
             _categoryChip(context, null, 'Todas'),
             ...categories.map((c) => _categoryChip(context, c, _cap(c))),
           ],
@@ -343,8 +386,6 @@ class _FilterChips extends StatelessWidget {
   }
 
   Widget _categoryChip(BuildContext context, String? value, String label) {
-    final cs = Theme.of(context).colorScheme;
-    // value==null significa "Todas" → centinela ''
     final selected = value == null
         ? controller.selectedCategory.value.isEmpty
         : controller.selectedCategory.value == value;
@@ -358,11 +399,11 @@ class _FilterChips extends StatelessWidget {
           curve: Curves.easeInOut,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color: selected ? cs.primary : cs.surfaceContainerHighest,
+            color: selected ? CantillanaTheme.rojo : Color(0xFF1B5E20),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? cs.primary : cs.outline.withOpacity(0.3),
-              width: selected ? 1.5 : 1,
+              color: CantillanaTheme.dorado,
+              width: selected ? 2 : 1.5,
             ),
           ),
           child: Text(
@@ -370,7 +411,7 @@ class _FilterChips extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-              color: selected ? Colors.white : cs.onSurface.withOpacity(0.75),
+              color: Colors.white,
             ),
           ),
         ),
@@ -382,7 +423,7 @@ class _FilterChips extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
-// Lista
+// Lista de incidencias
 // ─────────────────────────────────────────
 
 class _IncidentList extends StatelessWidget {
@@ -418,20 +459,36 @@ class _IncidentList extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Eliminar incidencia'),
-        content: Text('¿Seguro que quieres eliminar "${incident.title}"?'),
+        backgroundColor: CantillanaTheme.verdeOscuro,
+        title: const Text(
+          'Eliminar incidencia',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          '¿Seguro que quieres eliminar "${incident.title}"?',
+          style: TextStyle(color: Colors.white70),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: CantillanaTheme.dorado),
+            ),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: CantillanaTheme.rojo,
+              side: BorderSide(color: CantillanaTheme.dorado, width: 2),
+            ),
             onPressed: () {
               ctrl.deleteIncident(incident.id);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Incidencia eliminada')),
+                SnackBar(
+                  content: const Text('Incidencia eliminada'),
+                  backgroundColor: CantillanaTheme.rojo,
+                ),
               );
             },
             child: const Text('Eliminar'),
@@ -448,6 +505,7 @@ class _IncidentList extends StatelessWidget {
   ) {
     showModalBottomSheet(
       context: context,
+      backgroundColor: CantillanaTheme.verdeOscuro,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -527,7 +585,6 @@ class _IncidentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final auth = Get.find<AuthController>();
     final isOwner = auth.userId == incident.userId;
 
@@ -539,8 +596,9 @@ class _IncidentCard extends StatelessWidget {
         padding: const EdgeInsets.only(right: 24),
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: Colors.red.shade400,
+          color: CantillanaTheme.rojo,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: CantillanaTheme.dorado, width: 3),
         ),
         child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
       ),
@@ -551,15 +609,12 @@ class _IncidentCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Color(0xFF1B5E20),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: _statusColor(incident.status).withOpacity(0.4),
-            width: 1.5,
-          ),
+          border: Border.all(color: CantillanaTheme.dorado, width: 3),
           boxShadow: [
             BoxShadow(
-              color: cs.primary.withOpacity(0.07),
+              color: Colors.black.withOpacity(0.3),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -591,12 +646,12 @@ class _IncidentCard extends StatelessWidget {
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15,
+                                      color: Colors.white,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                // Indicador "mía"
                                 if (isOwner) ...[
                                   const SizedBox(width: 6),
                                   Tooltip(
@@ -604,7 +659,7 @@ class _IncidentCard extends StatelessWidget {
                                     child: Icon(
                                       Icons.person_pin,
                                       size: 16,
-                                      color: cs.primary,
+                                      color: CantillanaTheme.dorado,
                                     ),
                                   ),
                                 ],
@@ -614,7 +669,7 @@ class _IncidentCard extends StatelessWidget {
                               incident.category.toUpperCase(),
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey[500],
+                                color: CantillanaTheme.dorado,
                                 letterSpacing: 0.5,
                               ),
                             ),
@@ -644,6 +699,7 @@ class _IncidentCard extends StatelessWidget {
                                 height: 160,
                                 child: Center(
                                   child: CircularProgressIndicator(
+                                    color: CantillanaTheme.dorado,
                                     value: progress.expectedTotalBytes != null
                                         ? progress.cumulativeBytesLoaded /
                                               progress.expectedTotalBytes!
@@ -653,10 +709,10 @@ class _IncidentCard extends StatelessWidget {
                               ),
                         errorBuilder: (_, __, ___) => Container(
                           height: 160,
-                          color: Colors.grey[100],
+                          color: Colors.black38,
                           child: const Icon(
                             Icons.broken_image,
-                            color: Colors.grey,
+                            color: Colors.white38,
                             size: 40,
                           ),
                         ),
@@ -667,7 +723,7 @@ class _IncidentCard extends StatelessWidget {
                   const SizedBox(height: 10),
                   Text(
                     incident.description,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -679,14 +735,14 @@ class _IncidentCard extends StatelessWidget {
                         const Icon(
                           Icons.location_on_outlined,
                           size: 13,
-                          color: Colors.grey,
+                          color: Colors.white54,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             incident.address!,
                             style: const TextStyle(
-                              color: Colors.grey,
+                              color: Colors.white54,
                               fontSize: 12,
                             ),
                             maxLines: 1,
@@ -700,13 +756,13 @@ class _IncidentCard extends StatelessWidget {
                       const Icon(
                         Icons.calendar_today,
                         size: 12,
-                        color: Colors.grey,
+                        color: Colors.white54,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         DateFormat('dd/MM/yy HH:mm').format(incident.createdAt),
                         style: const TextStyle(
-                          color: Colors.grey,
+                          color: Colors.white54,
                           fontSize: 12,
                         ),
                       ),
@@ -720,13 +776,6 @@ class _IncidentCard extends StatelessWidget {
       ),
     );
   }
-
-  Color _statusColor(IncidentStatus s) => switch (s) {
-    IncidentStatus.pending => Colors.orange,
-    IncidentStatus.inProgress => Colors.blue,
-    IncidentStatus.resolved => Colors.green,
-    IncidentStatus.rejected => Colors.red,
-  };
 }
 
 // ─────────────────────────────────────────
@@ -739,14 +788,14 @@ class _CategoryIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: cs.secondaryContainer,
+        color: CantillanaTheme.dorado.withOpacity(0.2),
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: CantillanaTheme.dorado, width: 2),
       ),
-      child: Icon(_icon(), color: cs.secondary, size: 20),
+      child: Icon(_icon(), color: CantillanaTheme.dorado, size: 20),
     );
   }
 
@@ -754,7 +803,7 @@ class _CategoryIcon extends StatelessWidget {
     'alumbrado' => Icons.lightbulb_outline,
     'limpieza' => Icons.cleaning_services_outlined,
     'mobiliario' => Icons.chair_outlined,
-    'viales' => Icons.construction, // ← corregido
+    'viales' => Icons.construction,
     _ => Icons.report_problem_outlined,
   };
 }
@@ -769,6 +818,7 @@ class _StatusBadge extends StatelessWidget {
     decoration: BoxDecoration(
       color: _color(),
       borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: CantillanaTheme.dorado, width: 2),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -791,7 +841,7 @@ class _StatusBadge extends StatelessWidget {
     IncidentStatus.pending => Colors.orange,
     IncidentStatus.inProgress => Colors.blue,
     IncidentStatus.resolved => Colors.green,
-    IncidentStatus.rejected => Colors.red,
+    IncidentStatus.rejected => CantillanaTheme.rojo,
   };
 
   String _label() => switch (status) {
@@ -823,9 +873,9 @@ class _PriorityBadge extends StatelessWidget {
   };
 
   Color _color() => switch (priority) {
-    IncidentPriority.high => Colors.red,
-    IncidentPriority.medium => Colors.orange,
-    IncidentPriority.low => Colors.green,
+    IncidentPriority.high => Colors.red.shade300,
+    IncidentPriority.medium => Colors.orange.shade300,
+    IncidentPriority.low => Colors.green.shade300,
   };
 
   String _label() => switch (priority) {
@@ -855,9 +905,13 @@ class _FilterSheet extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Filtros',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: CantillanaTheme.dorado,
+                  ),
                 ),
                 if (controller.hasActiveFilters)
                   TextButton(
@@ -865,12 +919,21 @@ class _FilterSheet extends StatelessWidget {
                       controller.clearFilters();
                       Navigator.pop(context);
                     },
-                    child: const Text('Limpiar todo'),
+                    child: Text(
+                      'Limpiar todo',
+                      style: TextStyle(color: CantillanaTheme.rojo),
+                    ),
                   ),
               ],
             ),
             const SizedBox(height: 16),
-            const Text('Estado', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'Estado',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -894,7 +957,10 @@ class _FilterSheet extends StatelessWidget {
             const SizedBox(height: 16),
             const Text(
               'Ordenar por',
-              style: TextStyle(fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -905,6 +971,15 @@ class _FilterSheet extends StatelessWidget {
                       label: Text(_sortLabel(o)),
                       selected: controller.sortOption.value == o,
                       onSelected: (_) => controller.sortOption(o),
+                      selectedColor: CantillanaTheme.rojo,
+                      backgroundColor: Color(0xFF1B5E20),
+                      side: BorderSide(color: CantillanaTheme.dorado, width: 2),
+                      labelStyle: TextStyle(
+                        color: Colors.white,
+                        fontWeight: controller.sortOption.value == o
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
                     ),
                   )
                   .toList(),
@@ -927,24 +1002,16 @@ class _FilterSheet extends StatelessWidget {
       duration: const Duration(milliseconds: 180),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: selected
-            ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: selected ? CantillanaTheme.rojo : Color(0xFF1B5E20),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: selected
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.outline.withOpacity(0.3),
-        ),
+        border: Border.all(color: CantillanaTheme.dorado, width: 2),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: 13,
           fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-          color: selected
-              ? Colors.white
-              : Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
+          color: Colors.white,
         ),
       ),
     ),
@@ -977,17 +1044,21 @@ class _StatusPickerSheet extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Cambiar estado',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: CantillanaTheme.dorado,
+          ),
         ),
         const SizedBox(height: 16),
         ...IncidentStatus.values.map(
           (s) => ListTile(
             leading: CircleAvatar(backgroundColor: _statusColor(s), radius: 10),
-            title: Text(_statusLabel(s)),
+            title: Text(_statusLabel(s), style: TextStyle(color: Colors.white)),
             trailing: current == s
-                ? const Icon(Icons.check, color: Colors.green)
+                ? Icon(Icons.check, color: CantillanaTheme.dorado)
                 : null,
             onTap: () => onPick(s),
           ),
@@ -1000,7 +1071,7 @@ class _StatusPickerSheet extends StatelessWidget {
     IncidentStatus.pending => Colors.orange,
     IncidentStatus.inProgress => Colors.blue,
     IncidentStatus.resolved => Colors.green,
-    IncidentStatus.rejected => Colors.red,
+    IncidentStatus.rejected => CantillanaTheme.rojo,
   };
 
   String _statusLabel(IncidentStatus s) => switch (s) {
@@ -1023,11 +1094,11 @@ class _LoadingView extends StatelessWidget {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
+        CircularProgressIndicator(color: CantillanaTheme.dorado),
         const SizedBox(height: 16),
         const Text(
           'Cargando incidencias…',
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(color: Colors.white70),
         ),
       ],
     ),
@@ -1047,21 +1118,29 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.wifi_off_rounded, size: 64, color: Colors.grey),
+          Icon(Icons.wifi_off_rounded, size: 64, color: CantillanaTheme.dorado),
           const SizedBox(height: 16),
           const Text(
             'Algo salió mal',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.grey),
+            style: const TextStyle(color: Colors.white70),
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: onRetry,
+            style: FilledButton.styleFrom(
+              backgroundColor: CantillanaTheme.rojo,
+              side: BorderSide(color: CantillanaTheme.dorado, width: 3),
+            ),
             icon: const Icon(Icons.refresh),
             label: const Text('Reintentar'),
           ),
@@ -1085,20 +1164,24 @@ class _EmptyView extends StatelessWidget {
         Icon(
           hasFilters ? Icons.search_off : Icons.check_circle_outline,
           size: 72,
-          color: Theme.of(context).colorScheme.secondary,
+          color: CantillanaTheme.dorado,
         ),
         const SizedBox(height: 16),
         Text(
           hasFilters
               ? 'Sin resultados para estos filtros'
               : 'No hay incidencias reportadas',
-          style: const TextStyle(fontSize: 16),
+          style: const TextStyle(fontSize: 16, color: Colors.white),
           textAlign: TextAlign.center,
         ),
         if (hasFilters) ...[
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: onClear,
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: CantillanaTheme.dorado, width: 2),
+              foregroundColor: CantillanaTheme.dorado,
+            ),
             child: const Text('Limpiar filtros'),
           ),
         ],

@@ -352,7 +352,7 @@ class IncidentController extends GetxController {
           IncidentComment(
             id: 'c4',
             userId: 'staff_01',
-            userName: 'Ayuntamiento',
+            userName: 'Carlos Ferrera',
             text: 'Ya está arreglado. Gracias por reportarlo.',
             createdAt: now.subtract(const Duration(days: 1, hours: 1)),
           ),

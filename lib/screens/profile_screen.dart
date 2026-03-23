@@ -1,3 +1,8 @@
+// ─────────────────────────────────────────
+// lib/screens/profile_screen.dart
+// OPTIMIZADO - Colores del escudo sin redundancias
+// ─────────────────────────────────────────
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +11,7 @@ import 'package:cantillana_incidencias/controllers/AuthController.dart';
 import 'package:cantillana_incidencias/controllers/IncidentController.dart';
 import 'package:cantillana_incidencias/models/incidentModel.dart';
 import 'package:cantillana_incidencias/models/userModel.dart';
+import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -62,15 +68,14 @@ class _ProfileViewState extends State<_ProfileView>
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
+      backgroundColor: CantillanaTheme.verdeOscuro,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             expandedHeight: 260,
             pinned: true,
-            backgroundColor: cs.primary,
+            backgroundColor: CantillanaTheme.rojo,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => context.pop(),
@@ -114,7 +119,8 @@ class _ProfileViewState extends State<_ProfileView>
             ),
             bottom: TabBar(
               controller: _tabs,
-              indicatorColor: Colors.white,
+              indicatorColor: CantillanaTheme.dorado,
+              indicatorWeight: 3,
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white60,
               tabs: const [
@@ -143,8 +149,8 @@ class _ProfileViewState extends State<_ProfileView>
     if (mounted) {
       setState(() => _isEditing = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Perfil actualizado correctamente'),
+        SnackBar(
+          content: const Text('Perfil actualizado correctamente'),
           backgroundColor: Colors.green,
         ),
       );
@@ -155,15 +161,28 @@ class _ProfileViewState extends State<_ProfileView>
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Estás seguro de que quieres cerrar la sesión?'),
+        backgroundColor: CantillanaTheme.verdeOscuro,
+        title: const Text(
+          'Cerrar sesión',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          '¿Estás seguro de que quieres cerrar la sesión?',
+          style: TextStyle(color: Colors.white70),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: CantillanaTheme.dorado),
+            ),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: CantillanaTheme.rojo,
+              side: BorderSide(color: CantillanaTheme.dorado, width: 2),
+            ),
             onPressed: () async {
               Navigator.pop(context);
               await Get.find<AuthController>().logout();
@@ -196,14 +215,12 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [cs.primary, cs.primary.withBlue(180)],
+          colors: [CantillanaTheme.rojo, CantillanaTheme.rojoOscuro],
         ),
       ),
       child: SafeArea(
@@ -218,7 +235,7 @@ class _ProfileHeader extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 44,
-                    backgroundColor: Colors.white24,
+                    backgroundColor: CantillanaTheme.dorado.withOpacity(0.3),
                     backgroundImage: user.avatarUrl != null
                         ? NetworkImage(user.avatarUrl!)
                         : null,
@@ -239,11 +256,11 @@ class _ProfileHeader extends StatelessWidget {
                       right: 0,
                       child: CircleAvatar(
                         radius: 14,
-                        backgroundColor: cs.secondary,
-                        child: const Icon(
+                        backgroundColor: CantillanaTheme.dorado,
+                        child: Icon(
                           Icons.camera_alt,
                           size: 14,
-                          color: Colors.white,
+                          color: CantillanaTheme.rojoOscuro,
                         ),
                       ),
                     ),
@@ -272,8 +289,12 @@ class _ProfileHeader extends StatelessWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: CantillanaTheme.dorado.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: CantillanaTheme.dorado,
+                      width: 1.5,
+                    ),
                   ),
                   child: Text(
                     user.roleLabel,
@@ -281,7 +302,6 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                 ),
               ] else ...[
-                // Campos de edición inline
                 _InlineField(controller: nameCtrl, hint: 'Nombre completo'),
                 const SizedBox(height: 8),
                 _InlineField(
@@ -320,11 +340,11 @@ class _InlineField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.white54),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white54),
+        enabledBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: CantillanaTheme.dorado, width: 2),
         ),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white),
+        focusedBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: CantillanaTheme.dorado, width: 3),
         ),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 4),
@@ -344,121 +364,86 @@ class _SummaryTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ctrl = Get.find<IncidentController>();
-    final cs = Theme.of(context).colorScheme;
 
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        // Estadísticas personales
-        Text(
-          'Mis estadísticas',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: cs.primary,
+    return Container(
+      color: CantillanaTheme.verdeOscuro,
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Text(
+            'Mis estadísticas',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: CantillanaTheme.dorado,
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Obx(() {
-          final mine = ctrl.incidentsByUser(user.id);
-          return Row(
-            children: [
-              _StatCard(
-                label: 'Total',
-                value: mine.length,
-                icon: Icons.assignment_outlined,
-                color: cs.primary,
-              ),
-              const SizedBox(width: 12),
-              _StatCard(
-                label: 'Pendientes',
-                value: mine
-                    .where((i) => i.status == IncidentStatus.pending)
-                    .length,
-                icon: Icons.hourglass_empty,
-                color: Colors.orange,
-              ),
-              const SizedBox(width: 12),
-              _StatCard(
-                label: 'Resueltas',
-                value: mine
-                    .where((i) => i.status == IncidentStatus.resolved)
-                    .length,
-                icon: Icons.check_circle_outline,
-                color: Colors.green,
-              ),
-            ],
-          );
-        }),
-        const SizedBox(height: 28),
+          const SizedBox(height: 12),
+          Obx(() {
+            final mine = ctrl.incidentsByUser(user.id);
+            return Row(
+              children: [
+                _StatCard(
+                  label: 'Total',
+                  value: mine.length,
+                  icon: Icons.assignment_outlined,
+                  color: CantillanaTheme.rojo,
+                ),
+                const SizedBox(width: 12),
+                _StatCard(
+                  label: 'Pendientes',
+                  value: mine
+                      .where((i) => i.status == IncidentStatus.pending)
+                      .length,
+                  icon: Icons.hourglass_empty,
+                  color: Colors.orange,
+                ),
+                const SizedBox(width: 12),
+                _StatCard(
+                  label: 'Resueltas',
+                  value: mine
+                      .where((i) => i.status == IncidentStatus.resolved)
+                      .length,
+                  icon: Icons.check_circle_outline,
+                  color: Colors.green,
+                ),
+              ],
+            );
+          }),
+          const SizedBox(height: 28),
 
-        // Datos de la cuenta
-        Text(
-          'Datos de la cuenta',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: cs.primary,
+          Text(
+            'Datos de la cuenta',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: CantillanaTheme.dorado,
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        _InfoRow(icon: Icons.email_outlined, label: 'Email', value: user.email),
-        if (user.phone != null)
+          const SizedBox(height: 12),
           _InfoRow(
-            icon: Icons.phone_outlined,
-            label: 'Teléfono',
-            value: user.phone!,
+            icon: Icons.email_outlined,
+            label: 'Email',
+            value: user.email,
           ),
-        _InfoRow(
-          icon: Icons.calendar_today_outlined,
-          label: 'Miembro desde',
-          value: DateFormat('dd/MM/yyyy').format(user.createdAt),
-        ),
-        _InfoRow(
-          icon: Icons.badge_outlined,
-          label: 'Rol',
-          value: user.roleLabel,
-        ),
-        const SizedBox(height: 28),
-
-        // Zona de peligro
-        Text(
-          'Cuenta',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: cs.primary,
-          ),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.lock_reset_outlined),
-          label: const Text('Cambiar contraseña'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+          if (user.phone != null)
+            _InfoRow(
+              icon: Icons.phone_outlined,
+              label: 'Teléfono',
+              value: user.phone!,
             ),
+          _InfoRow(
+            icon: Icons.calendar_today_outlined,
+            label: 'Miembro desde',
+            value: DateFormat('dd/MM/yyyy').format(user.createdAt),
           ),
-        ),
-        const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.delete_outline, color: Colors.red),
-          label: const Text(
-            'Eliminar cuenta',
-            style: TextStyle(color: Colors.red),
+          _InfoRow(
+            icon: Icons.badge_outlined,
+            label: 'Rol',
+            value: user.roleLabel,
           ),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            side: const BorderSide(color: Colors.red),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -481,9 +466,9 @@ class _StatCard extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: Color(0xFF1B5E20),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: CantillanaTheme.dorado, width: 2),
       ),
       child: Column(
         children: [
@@ -497,7 +482,10 @@ class _StatCard extends StatelessWidget {
               color: color,
             ),
           ),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
         ],
       ),
     ),
@@ -520,18 +508,22 @@ class _InfoRow extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 10),
     child: Row(
       children: [
-        Icon(icon, size: 20, color: Colors.grey),
+        Icon(icon, size: 20, color: CantillanaTheme.dorado),
         const SizedBox(width: 14),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               label,
-              style: const TextStyle(color: Colors.grey, fontSize: 11),
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
             ),
             Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -551,36 +543,39 @@ class _MyIncidentsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ctrl = Get.find<IncidentController>();
-    final cs = Theme.of(context).colorScheme;
 
-    return Obx(() {
-      final mine = ctrl.incidentsByUser(userId);
+    return Container(
+      color: CantillanaTheme.verdeOscuro,
+      child: Obx(() {
+        final mine = ctrl.incidentsByUser(userId);
 
-      if (mine.isEmpty) {
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade300),
-              const SizedBox(height: 12),
-              const Text(
-                'Aún no has reportado incidencias',
-                style: TextStyle(color: Colors.grey),
-              ),
-            ],
-          ),
+        if (mine.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.inbox_outlined,
+                  size: 64,
+                  color: CantillanaTheme.dorado.withOpacity(0.3),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Aún no has reportado incidencias',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: mine.length,
+          itemBuilder: (context, i) => _CompactIncidentTile(incident: mine[i]),
         );
-      }
-
-      return ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: mine.length,
-        itemBuilder: (context, i) {
-          final inc = mine[i];
-          return _CompactIncidentTile(incident: inc);
-        },
-      );
-    });
+      }),
+    );
   }
 }
 
@@ -590,15 +585,17 @@ class _CompactIncidentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      color: Color(0xFF1B5E20),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: CantillanaTheme.dorado, width: 2),
+      ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: _statusColor(incident.status).withOpacity(0.15),
+          backgroundColor: _statusColor(incident.status).withOpacity(0.3),
           child: Icon(
             _statusIcon(incident.status),
             color: _statusColor(incident.status),
@@ -607,7 +604,11 @@ class _CompactIncidentTile extends StatelessWidget {
         ),
         title: Text(
           incident.title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Colors.white,
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -619,13 +620,13 @@ class _CompactIncidentTile extends StatelessWidget {
               incident.category.toUpperCase(),
               style: TextStyle(
                 fontSize: 10,
-                color: cs.primary,
+                color: CantillanaTheme.dorado,
                 letterSpacing: 0.5,
               ),
             ),
             Text(
               DateFormat('dd/MM/yyyy HH:mm').format(incident.createdAt),
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+              style: const TextStyle(fontSize: 11, color: Colors.white54),
             ),
           ],
         ),
@@ -653,7 +654,7 @@ class _CompactIncidentTile extends StatelessWidget {
     IncidentStatus.pending => Colors.orange,
     IncidentStatus.inProgress => Colors.blue,
     IncidentStatus.resolved => Colors.green,
-    IncidentStatus.rejected => Colors.red,
+    IncidentStatus.rejected => CantillanaTheme.rojo,
   };
 
   IconData _statusIcon(IncidentStatus s) => switch (s) {
