@@ -14,6 +14,7 @@ import 'package:cantillana_incidencias/screens/login_screen.dart';
 import 'package:cantillana_incidencias/screens/citizen_home_screen.dart';
 import 'package:cantillana_incidencias/screens/profile_screen.dart';
 import 'package:cantillana_incidencias/screens/incident_detail_screen.dart';
+import 'package:cantillana_incidencias/screens/create_incident_screen.dart';
 
 // Rutas con nombre para evitar strings mágicos en el código
 abstract class AppRoutes {
@@ -59,10 +60,8 @@ class AppRouter {
           GoRoute(
             path: 'create-incident',
             name: 'createIncident',
-            pageBuilder: (context, state) => _slide(
-              state,
-              const _PlaceholderScreen(title: 'Crear incidencia'),
-            ),
+            pageBuilder: (context, state) =>
+                _slide(state, const CreateIncidentScreen()),
           ),
           // Sub-ruta: detalle de incidencia
           GoRoute(

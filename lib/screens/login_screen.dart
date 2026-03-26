@@ -1,8 +1,12 @@
+// ─────────────────────────────────────────
+// lib/screens/login_screen.dart
+// ─────────────────────────────────────────
+
+import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
-import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,15 +19,15 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _authController = Get.find<AuthController>();
 
-  // ── Controladores de texto ─────────────
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
+  // ── Controladores ──────────────────────
+  final _nombreCtrl = TextEditingController();
+  final _credencialCtrl = TextEditingController(); // email o teléfono
+  final _telefonoCtrl = TextEditingController(); // solo en registro
+  final _contrasenaCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   bool _isRegisterMode = false;
-  bool _obscurePassword = true;
+  bool _obscureContrasena = true;
 
   late final AnimationController _animCtrl;
   late final Animation<double> _fadeAnim;
@@ -46,10 +50,10 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _animCtrl.dispose();
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _passwordCtrl.dispose();
-    _phoneCtrl.dispose();
+    _nombreCtrl.dispose();
+    _credencialCtrl.dispose();
+    _telefonoCtrl.dispose();
+    _contrasenaCtrl.dispose();
     super.dispose();
   }
 
@@ -66,13 +70,16 @@ class _LoginScreenState extends State<LoginScreen>
     bool ok;
     if (_isRegisterMode) {
       ok = await _authController.register(
-        name: _nameCtrl.text,
-        email: _emailCtrl.text,
-        password: _passwordCtrl.text,
-        phone: _phoneCtrl.text.isNotEmpty ? _phoneCtrl.text : null,
+        nombre: _nombreCtrl.text,
+        contrasena: _contrasenaCtrl.text,
+        email: _credencialCtrl.text.contains('@') ? _credencialCtrl.text : null,
+        telefono: _telefonoCtrl.text.isNotEmpty ? _telefonoCtrl.text : null,
       );
     } else {
-      ok = await _authController.login(_emailCtrl.text, _passwordCtrl.text);
+      ok = await _authController.login(
+        _credencialCtrl.text,
+        _contrasenaCtrl.text,
+      );
     }
 
     if (ok && mounted) context.go('/');
@@ -80,11 +87,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
       body: Container(
-        // ── DEGRADADO ROJO SÓLIDO (sin mezclas que lo hagan rosa) ──────────
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -95,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen>
         child: SafeArea(
           child: Column(
             children: [
-              // ── Cabecera ─────────────────────────
+              // ── Cabecera con escudo ───────────────
               Expanded(
                 flex: 2,
                 child: FadeTransition(
@@ -103,7 +107,6 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Escudo de Cantillana
                       Container(
                         width: 100,
                         height: 100,
@@ -159,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ),
 
-              // ── Tarjeta del formulario ────────────
+              // ── Tarjeta del formulario ─────────────
               Expanded(
                 flex: 5,
                 child: SlideTransition(
@@ -199,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen>
                               Text(
                                 _isRegisterMode
                                     ? 'Regístrate para reportar incidencias'
-                                    : 'Inicia sesión en tu cuenta',
+                                    : 'Inicia sesión con tu email o teléfono',
                                 style: const TextStyle(
                                   color: Colors.white70,
                                   fontSize: 13,
@@ -209,8 +212,8 @@ class _LoginScreenState extends State<LoginScreen>
 
                               // Nombre (solo registro)
                               if (_isRegisterMode) ...[
-                                _FormField(
-                                  controller: _nameCtrl,
+                                _CampoFormulario(
+                                  controller: _nombreCtrl,
                                   label: 'Nombre completo',
                                   icon: Icons.person_outline,
                                   validator: (v) => (v?.trim().isEmpty ?? true)
@@ -220,28 +223,29 @@ class _LoginScreenState extends State<LoginScreen>
                                 const SizedBox(height: 12),
                               ],
 
-                              // Email
-                              _FormField(
-                                controller: _emailCtrl,
-                                label: 'Correo electrónico',
-                                icon: Icons.email_outlined,
+                              // Email o teléfono
+                              _CampoFormulario(
+                                controller: _credencialCtrl,
+                                label: _isRegisterMode
+                                    ? 'Email'
+                                    : 'Email o teléfono',
+                                icon: Icons.alternate_email,
                                 keyboardType: TextInputType.emailAddress,
                                 validator: (v) {
                                   if (v?.trim().isEmpty ?? true) {
-                                    return 'Introduce tu email';
-                                  }
-                                  if (!GetUtils.isEmail(v!.trim())) {
-                                    return 'Email no válido';
+                                    return _isRegisterMode
+                                        ? 'Introduce tu email'
+                                        : 'Introduce tu email o teléfono';
                                   }
                                   return null;
                                 },
                               ),
                               const SizedBox(height: 12),
 
-                              // Teléfono (solo registro)
+                              // Teléfono (solo registro, opcional)
                               if (_isRegisterMode) ...[
-                                _FormField(
-                                  controller: _phoneCtrl,
+                                _CampoFormulario(
+                                  controller: _telefonoCtrl,
                                   label: 'Teléfono (opcional)',
                                   icon: Icons.phone_outlined,
                                   keyboardType: TextInputType.phone,
@@ -250,21 +254,22 @@ class _LoginScreenState extends State<LoginScreen>
                               ],
 
                               // Contraseña
-                              _FormField(
-                                controller: _passwordCtrl,
+                              _CampoFormulario(
+                                controller: _contrasenaCtrl,
                                 label: 'Contraseña',
                                 icon: Icons.lock_outline,
-                                obscureText: _obscurePassword,
+                                obscureText: _obscureContrasena,
                                 suffix: IconButton(
                                   icon: Icon(
-                                    _obscurePassword
+                                    _obscureContrasena
                                         ? Icons.visibility_outlined
                                         : Icons.visibility_off_outlined,
                                     color: CantillanaTheme.dorado,
                                     size: 20,
                                   ),
                                   onPressed: () => setState(
-                                    () => _obscurePassword = !_obscurePassword,
+                                    () => _obscureContrasena =
+                                        !_obscureContrasena,
                                   ),
                                 ),
                                 validator: (v) => (v?.length ?? 0) < 6
@@ -274,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                               const SizedBox(height: 6),
 
-                              // Error message
+                              // Mensaje de error
                               Obx(() {
                                 final msg = _authController.errorMessage.value;
                                 if (msg.isEmpty) return const SizedBox.shrink();
@@ -286,9 +291,8 @@ class _LoginScreenState extends State<LoginScreen>
                                       vertical: 8,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: CantillanaTheme.rojo.withOpacity(
-                                        0.2,
-                                      ),
+                                      color:
+                                          CantillanaTheme.rojo.withOpacity(0.2),
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
                                         color: CantillanaTheme.rojo,
@@ -297,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                     child: Row(
                                       children: [
-                                        Icon(
+                                        const Icon(
                                           Icons.error_outline,
                                           color: Colors.white,
                                           size: 16,
@@ -306,7 +310,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         Expanded(
                                           child: Text(
                                             msg,
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 12,
                                             ),
@@ -364,7 +368,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                               const SizedBox(height: 12),
 
-                              // Toggle login/registro
+                              // Toggle login / registro
                               Center(
                                 child: TextButton(
                                   onPressed: _toggleMode,
@@ -395,7 +399,6 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
 
-                              // Demo hint
                               Center(
                                 child: Text(
                                   'Demo: cualquier email + contraseña ≥ 6 chars',
@@ -403,6 +406,40 @@ class _LoginScreenState extends State<LoginScreen>
                                     color: Colors.white38,
                                     fontSize: 10,
                                   ),
+                                ),
+                              ),
+
+                              // ── Botón invitado ──────────────────────────
+                              const SizedBox(height: 18),
+                              Center(
+                                child: OutlinedButton.icon(
+                                  icon: const Icon(
+                                    Icons.person_outline,
+                                    size: 18,
+                                    color: Colors.white70,
+                                  ),
+                                  label: const Text(
+                                    'Seguir como invitado',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(
+                                      color: CantillanaTheme.dorado,
+                                      width: 1.5,
+                                    ),
+                                    foregroundColor: Colors.white70,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 10,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  onPressed: () => context.go('/'),
                                 ),
                               ),
                             ],
@@ -425,7 +462,7 @@ class _LoginScreenState extends State<LoginScreen>
 // Campo de formulario reutilizable
 // ─────────────────────────────────────────
 
-class _FormField extends StatelessWidget {
+class _CampoFormulario extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final IconData icon;
@@ -434,7 +471,7 @@ class _FormField extends StatelessWidget {
   final String? Function(String?)? validator;
   final Widget? suffix;
 
-  const _FormField({
+  const _CampoFormulario({
     required this.controller,
     required this.label,
     required this.icon,
@@ -454,11 +491,11 @@ class _FormField extends StatelessWidget {
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.white70),
+        labelStyle: const TextStyle(color: Colors.white70),
         prefixIcon: Icon(icon, color: CantillanaTheme.dorado, size: 20),
         suffixIcon: suffix,
         filled: true,
-        fillColor: Color(0xFF1B5E20),
+        fillColor: const Color(0xFF1B5E20),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: CantillanaTheme.dorado, width: 2),
@@ -479,7 +516,7 @@ class _FormField extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: CantillanaTheme.rojo, width: 3),
         ),
-        errorStyle: TextStyle(color: Colors.white),
+        errorStyle: const TextStyle(color: Colors.white),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,

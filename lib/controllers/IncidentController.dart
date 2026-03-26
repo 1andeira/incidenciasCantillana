@@ -1,53 +1,56 @@
+// ─────────────────────────────────────────
 // lib/controllers/IncidentController.dart
+// ─────────────────────────────────────────
 
 import 'package:get/get.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
+import 'package:cantillana_incidencias/models/categoriaModel.dart';
 import 'package:cantillana_incidencias/models/incidentModel.dart';
+import 'package:cantillana_incidencias/models/comentarioModel.dart';
 
-enum SortOption { newest, oldest, priority }
+/// Sin SortOption.priority (no existe en el esquema)
+enum SortOption { newest, oldest }
 
 class IncidentController extends GetxController {
-  // ── Estado ─────────────────────────────────────────────────────────────
+  final AuthController authController;
+
+  IncidentController({required this.authController});
+
+  // ── Estado ──────────────────────────────────────────────────────────────
   final _allIncidents = <IncidentModel>[].obs;
+  final categorias = <CategoriaModel>[].obs;
+
   var isLoading = true.obs;
   var hasError = false.obs;
   var errorMessage = ''.obs;
-
-  // Estado de carga del detalle (para añadir comentarios, etc.)
   var isDetailLoading = false.obs;
 
   // ── Filtros ─────────────────────────────────────────────────────────────
   var searchQuery = ''.obs;
-  // '' = sin filtro activo (centinela para evitar el bug de Rxn con null)
-  var selectedCategory = ''.obs;
-  // 'all' = sin filtro activo
-  var selectedStatus = 'all'.obs;
+  var selectedCategoriaId = Rxn<int>(); // null = todas las categorías
+  var selectedEstado = 'all'.obs; // 'all' = sin filtro de estado
   var sortOption = SortOption.newest.obs;
   var onlyMine = false.obs;
 
-  // ── Vista filtrada ──────────────────────────────────────────────────────
+  // ── Vista filtrada ───────────────────────────────────────────────────────
   List<IncidentModel> get incidents {
     var list = _allIncidents.toList();
 
     if (onlyMine.value) {
       final uid = _currentUserId;
-      if (uid.isNotEmpty) list = list.where((i) => i.userId == uid).toList();
+      if (uid != 0) list = list.where((i) => i.usuarioId == uid).toList();
     }
-    if (selectedStatus.value != 'all') {
-      final filterStatus = IncidentStatus.values.firstWhereOrNull(
-        (e) => e.name == selectedStatus.value,
+    if (selectedEstado.value != 'all') {
+      final filterEstado = IncidentEstado.values.firstWhereOrNull(
+        (e) => e.name == selectedEstado.value,
       );
-      if (filterStatus != null) {
-        list = list.where((i) => i.status == filterStatus).toList();
+      if (filterEstado != null) {
+        list = list.where((i) => i.estado == filterEstado).toList();
       }
     }
-    if (selectedCategory.value.isNotEmpty) {
+    if (selectedCategoriaId.value != null) {
       list = list
-          .where(
-            (i) =>
-                i.category.toLowerCase() ==
-                selectedCategory.value.toLowerCase(),
-          )
+          .where((i) => i.categoriaId == selectedCategoriaId.value)
           .toList();
     }
     final q = searchQuery.value.trim().toLowerCase();
@@ -55,71 +58,69 @@ class IncidentController extends GetxController {
       list = list
           .where(
             (i) =>
-                i.title.toLowerCase().contains(q) ||
-                i.description.toLowerCase().contains(q) ||
-                i.category.toLowerCase().contains(q) ||
-                (i.address?.toLowerCase().contains(q) ?? false),
+                i.titulo.toLowerCase().contains(q) ||
+                i.descripcion.toLowerCase().contains(q) ||
+                (i.categoriaNombre?.toLowerCase().contains(q) ?? false),
           )
           .toList();
     }
     switch (sortOption.value) {
       case SortOption.newest:
-        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        list.sort((a, b) => b.fechaCreacion.compareTo(a.fechaCreacion));
       case SortOption.oldest:
-        list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      case SortOption.priority:
-        list.sort((a, b) => b.priority.index.compareTo(a.priority.index));
+        list.sort((a, b) => a.fechaCreacion.compareTo(b.fechaCreacion));
     }
     return list;
   }
 
-  // ── Obtener por ID ──────────────────────────────────────────────────────
-  IncidentModel? getById(String id) =>
+  // ── Obtener por ID ───────────────────────────────────────────────────────
+  IncidentModel? getById(int id) =>
       _allIncidents.firstWhereOrNull((i) => i.id == id);
 
-  // Versión reactiva: escucha cambios en _allIncidents y devuelve el modelo actualizado
-  Rx<IncidentModel?> getByIdRx(String id) {
+  Rx<IncidentModel?> getByIdRx(int id) {
     final obs = Rx<IncidentModel?>(getById(id));
     ever(_allIncidents, (_) => obs.value = getById(id));
     return obs;
   }
 
-  // ── Estadísticas ────────────────────────────────────────────────────────
+  // ── Estadísticas ─────────────────────────────────────────────────────────
   int get totalCount => _allIncidents.length;
   int get pendingCount =>
-      _allIncidents.where((i) => i.status == IncidentStatus.pending).length;
+      _allIncidents.where((i) => i.estado == IncidentEstado.pendiente).length;
   int get inProgressCount =>
-      _allIncidents.where((i) => i.status == IncidentStatus.inProgress).length;
+      _allIncidents.where((i) => i.estado == IncidentEstado.en_proceso).length;
   int get resolvedCount =>
-      _allIncidents.where((i) => i.status == IncidentStatus.resolved).length;
+      _allIncidents.where((i) => i.estado == IncidentEstado.resuelta).length;
 
-  List<IncidentModel> incidentsByUser(String userId) =>
-      _allIncidents.where((i) => i.userId == userId).toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  List<IncidentModel> incidentsByUser(int userId) =>
+      _allIncidents.where((i) => i.usuarioId == userId).toList()
+        ..sort((a, b) => b.fechaCreacion.compareTo(a.fechaCreacion));
 
-  List<String> get availableCategories =>
-      _allIncidents.map((i) => i.category).toSet().toList()..sort();
+  int get _currentUserId => authController.userId;
 
-  String get _currentUserId {
-    try {
-      return Get.find<AuthController>().userId;
-    } catch (_) {
-      return '';
-    }
-  }
-
-  // ── Ciclo de vida ───────────────────────────────────────────────────────
+  // ── Ciclo de vida ─────────────────────────────────────────────────────────
   @override
   void onInit() {
     super.onInit();
+    _fetchCategorias();
     fetchIncidents();
   }
 
-  // ── Carga ───────────────────────────────────────────────────────────────
+  // ── Carga ──────────────────────────────────────────────────────────────────
+  Future<void> _fetchCategorias() async {
+    // Simula SELECT * FROM categorias
+    await Future.delayed(const Duration(milliseconds: 300));
+    categorias.assignAll(_mockCategorias());
+  }
+
   Future<void> fetchIncidents() async {
     try {
       isLoading(true);
       hasError(false);
+      // Simula SELECT i.*, c.nombre AS categoria_nombre, u.nombre AS usuario_nombre
+      //         FROM incidencias i
+      //         JOIN categorias c ON c.id = i.categoria_id
+      //         JOIN usuarios u   ON u.id = i.usuario_id
       await Future.delayed(const Duration(seconds: 2));
       _allIncidents.assignAll(_mockData());
     } catch (e) {
@@ -132,257 +133,202 @@ class IncidentController extends GetxController {
 
   Future<void> refresh() => fetchIncidents();
 
-  // ── CRUD ────────────────────────────────────────────────────────────────
+  // ── CRUD ────────────────────────────────────────────────────────────────────
   void addIncident(IncidentModel incident) => _allIncidents.insert(0, incident);
 
   void updateIncident(IncidentModel updated) {
     final idx = _allIncidents.indexWhere((i) => i.id == updated.id);
     if (idx != -1) {
-      _allIncidents[idx] = updated.copyWith(updatedAt: DateTime.now());
-      _allIncidents
-          .refresh(); // fuerza rebuild de Obx que observen el mismo objeto
+      _allIncidents[idx] = updated;
+      _allIncidents.refresh();
     }
   }
 
-  void deleteIncident(String id) =>
-      _allIncidents.removeWhere((i) => i.id == id);
+  void deleteIncident(int id) => _allIncidents.removeWhere((i) => i.id == id);
 
-  // ── Cambio de estado con historial ──────────────────────────────────────
-  Future<void> updateStatus(
-    String id,
-    IncidentStatus newStatus, {
-    String? comment,
-  }) async {
+  // ── Cambio de estado ─────────────────────────────────────────────────────
+  /// Simula UPDATE incidencias SET estado=$1 WHERE id=$2
+  Future<void> updateEstado(int id, IncidentEstado nuevoEstado) async {
     final incident = _allIncidents.firstWhereOrNull((i) => i.id == id);
     if (incident == null) return;
 
     isDetailLoading(true);
-    await Future.delayed(const Duration(milliseconds: 400)); // simula API
-
-    final entry = StatusHistoryEntry(
-      status: newStatus,
-      changedAt: DateTime.now(),
-      comment: comment,
-      changedBy: _currentUserId.isNotEmpty ? _currentUserId : 'system',
-    );
-
-    updateIncident(
-      incident.copyWith(
-        status: newStatus,
-        statusHistory: [...incident.statusHistory, entry],
-      ),
-    );
+    await Future.delayed(const Duration(milliseconds: 400));
+    updateIncident(incident.copyWith(estado: nuevoEstado));
     isDetailLoading(false);
   }
 
-  // ── Comentarios ─────────────────────────────────────────────────────────
-  Future<void> addComment(String incidentId, String text) async {
-    final incident = _allIncidents.firstWhereOrNull((i) => i.id == incidentId);
+  // ── Comentarios ──────────────────────────────────────────────────────────
+  /// Simula INSERT INTO comentarios (incidencia_id, usuario_id, comentario)
+  Future<void> addComentario(int incidenciaId, String texto) async {
+    final incident = _allIncidents.firstWhereOrNull(
+      (i) => i.id == incidenciaId,
+    );
     if (incident == null) return;
 
     isDetailLoading(true);
     await Future.delayed(const Duration(milliseconds: 300));
 
     String userName = 'Usuario';
-    try {
-      final user = Get.find<AuthController>().currentUser.value;
-      if (user != null) userName = user.name;
-    } catch (_) {}
+    int uid = 0;
 
-    final comment = IncidentComment(
-      id: 'c_${DateTime.now().millisecondsSinceEpoch}',
-      userId: _currentUserId,
-      userName: userName,
-      text: text.trim(),
-      createdAt: DateTime.now(),
+    final user = authController.currentUser.value;
+    if (user != null) {
+      userName = user.nombre;
+      uid = user.id;
+    }
+
+    final comentario = ComentarioModel(
+      id: DateTime.now().millisecondsSinceEpoch,
+      incidenciaId: incidenciaId,
+      usuarioId: uid,
+      comentario: texto.trim(),
+      fechaCreacion: DateTime.now(),
+      usuarioNombre: userName,
     );
 
     updateIncident(
-      incident.copyWith(comments: [...incident.comments, comment]),
+      incident.copyWith(comentarios: [...incident.comentarios, comentario]),
     );
     isDetailLoading(false);
   }
 
-  Future<void> deleteComment(String incidentId, String commentId) async {
-    final incident = _allIncidents.firstWhereOrNull((i) => i.id == incidentId);
+  /// Simula DELETE FROM comentarios WHERE id=$1
+  Future<void> deleteComentario(int incidenciaId, int comentarioId) async {
+    final incident = _allIncidents.firstWhereOrNull(
+      (i) => i.id == incidenciaId,
+    );
     if (incident == null) return;
     updateIncident(
       incident.copyWith(
-        comments: incident.comments.where((c) => c.id != commentId).toList(),
+        comentarios:
+            incident.comentarios.where((c) => c.id != comentarioId).toList(),
       ),
     );
   }
 
-  // ── Filtros ─────────────────────────────────────────────────────────────
+  // ── Filtros ──────────────────────────────────────────────────────────────────
   void clearFilters() {
     searchQuery('');
-    selectedStatus.value = 'all';
-    selectedCategory.value = '';
+    selectedEstado.value = 'all';
+    selectedCategoriaId.value = null;
     sortOption(SortOption.newest);
     onlyMine(false);
   }
 
   bool get hasActiveFilters =>
       searchQuery.value.isNotEmpty ||
-      selectedStatus.value != 'all' ||
-      selectedCategory.value.isNotEmpty ||
+      selectedEstado.value != 'all' ||
+      selectedCategoriaId.value != null ||
       sortOption.value != SortOption.newest ||
       onlyMine.value;
 
-  // ── Mock data ───────────────────────────────────────────────────────────
+  // ── Mock: SELECT * FROM categorias ──────────────────────────────────────────
+  List<CategoriaModel> _mockCategorias() => [
+        const CategoriaModel(id: 1, nombre: 'Alumbrado'),
+        const CategoriaModel(id: 2, nombre: 'Limpieza'),
+        const CategoriaModel(id: 3, nombre: 'Mobiliario'),
+        const CategoriaModel(id: 4, nombre: 'Viales'),
+        const CategoriaModel(id: 5, nombre: 'Otros'),
+      ];
+
+  // ── Mock: SELECT con JOINs ───────────────────────────────────────────────────
   List<IncidentModel> _mockData() {
-    final myId = _currentUserId.isNotEmpty ? _currentUserId : 'u_demo';
+    final myId = _currentUserId != 0 ? _currentUserId : 99;
     final now = DateTime.now();
 
     return [
       IncidentModel(
-        id: '1',
-        userId: myId,
-        title: 'Avería Alumbrado Público',
-        description:
-            'Farola parpadeando constantemente en la calle principal, '
+        id: 1,
+        usuarioId: myId,
+        categoriaId: 1,
+        titulo: 'Avería Alumbrado Público',
+        descripcion: 'Farola parpadeando constantemente en la calle principal, '
             'justo frente al ayuntamiento. Lleva así más de una semana y '
             'dificulta la visibilidad nocturna en esa zona.',
-        category: 'alumbrado',
-        status: IncidentStatus.pending,
-        priority: IncidentPriority.high,
-        address: 'C/ Principal, 12',
-        latitude: 37.6050,
-        longitude: -5.7949,
-        createdAt: now,
-        statusHistory: [
-          StatusHistoryEntry(
-            status: IncidentStatus.pending,
-            changedAt: now,
-            comment: 'Incidencia registrada',
-            changedBy: myId,
-          ),
-        ],
-        comments: [],
+        fechaCreacion: now,
+        estado: IncidentEstado.pendiente,
+        categoriaNombre: 'Alumbrado',
+        usuarioNombre: 'Demo Usuario',
+        comentarios: [],
       ),
       IncidentModel(
-        id: '2',
-        userId: 'u_otro',
-        title: 'Contenedor Desbordado',
-        description:
-            'Contenedor de basura completamente desbordado en la zona '
+        id: 2,
+        usuarioId: 2,
+        categoriaId: 2,
+        titulo: 'Contenedor Desbordado',
+        descripcion: 'Contenedor de basura completamente desbordado en la zona '
             'del polideportivo. Los residuos están en la vía pública.',
-        category: 'limpieza',
-        status: IncidentStatus.inProgress,
-        priority: IncidentPriority.medium,
-        imageUrl: 'https://picsum.photos/seed/bin/800/400',
-        address: 'Av. Polideportivo, s/n',
-        latitude: 37.6065,
-        longitude: -5.7960,
-        createdAt: now.subtract(const Duration(days: 1)),
-        statusHistory: [
-          StatusHistoryEntry(
-            status: IncidentStatus.pending,
-            changedAt: now.subtract(const Duration(days: 1)),
-            comment: 'Incidencia registrada',
-            changedBy: 'u_otro',
+        fechaCreacion: now.subtract(const Duration(days: 1)),
+        estado: IncidentEstado.en_proceso,
+        categoriaNombre: 'Limpieza',
+        usuarioNombre: 'María García',
+        comentarios: [
+          ComentarioModel(
+            id: 101,
+            incidenciaId: 2,
+            usuarioId: 3,
+            comentario: 'Confirmo el problema, huele muy mal y hay moscas.',
+            fechaCreacion: now.subtract(const Duration(hours: 18)),
+            usuarioNombre: 'Pedro López',
           ),
-          StatusHistoryEntry(
-            status: IncidentStatus.inProgress,
-            changedAt: now.subtract(const Duration(hours: 10)),
-            comment: 'Operarios asignados para recogida esta tarde.',
-            changedBy: 'staff_01',
-          ),
-        ],
-        comments: [
-          IncidentComment(
-            id: 'c1',
-            userId: 'u_vecino',
-            userName: 'María García',
-            text: 'Confirmo el problema, huele muy mal y hay moscas.',
-            createdAt: now.subtract(const Duration(hours: 18)),
-          ),
-          IncidentComment(
-            id: 'c2',
-            userId: 'staff_01',
-            userName: 'Ayuntamiento',
-            text: 'Gracias por el aviso. Pasaremos a recogerlo esta tarde.',
-            createdAt: now.subtract(const Duration(hours: 9)),
+          ComentarioModel(
+            id: 102,
+            incidenciaId: 2,
+            usuarioId: 10,
+            comentario:
+                'Gracias por el aviso. Pasaremos a recogerlo esta tarde.',
+            fechaCreacion: now.subtract(const Duration(hours: 9)),
+            usuarioNombre: 'Ayuntamiento',
           ),
         ],
       ),
       IncidentModel(
-        id: '3',
-        userId: myId,
-        title: 'Banco del parque roto',
-        description:
+        id: 3,
+        usuarioId: myId,
+        categoriaId: 3,
+        titulo: 'Banco del parque roto',
+        descripcion:
             'El banco situado junto a la fuente del Parque Municipal tiene '
-            'una tabla suelta que puede causar heridas. Hay niños que juegan '
-            'en esa zona continuamente.',
-        category: 'mobiliario',
-        status: IncidentStatus.resolved,
-        priority: IncidentPriority.low,
-        address: 'Parque Municipal, zona fuente',
-        latitude: 37.6040,
-        longitude: -5.7935,
-        createdAt: now.subtract(const Duration(days: 3)),
-        statusHistory: [
-          StatusHistoryEntry(
-            status: IncidentStatus.pending,
-            changedAt: now.subtract(const Duration(days: 3)),
-            comment: 'Incidencia registrada',
-            changedBy: myId,
+            'una tabla suelta que puede causar heridas. Hay niños que '
+            'juegan en esa zona continuamente.',
+        fechaCreacion: now.subtract(const Duration(days: 3)),
+        estado: IncidentEstado.resuelta,
+        categoriaNombre: 'Mobiliario',
+        usuarioNombre: 'Demo Usuario',
+        comentarios: [
+          ComentarioModel(
+            id: 103,
+            incidenciaId: 3,
+            usuarioId: myId,
+            comentario:
+                '¿Hay alguna actualización? Llevo dos días sin noticias.',
+            fechaCreacion: now.subtract(const Duration(days: 2, hours: 3)),
+            usuarioNombre: 'Demo Usuario',
           ),
-          StatusHistoryEntry(
-            status: IncidentStatus.inProgress,
-            changedAt: now.subtract(const Duration(days: 2)),
-            comment: 'Revisado por el equipo de mantenimiento.',
-            changedBy: 'staff_01',
-          ),
-          StatusHistoryEntry(
-            status: IncidentStatus.resolved,
-            changedAt: now.subtract(const Duration(days: 1)),
-            comment: 'Tabla reemplazada. Banco en perfecto estado.',
-            changedBy: 'staff_01',
-          ),
-        ],
-        comments: [
-          IncidentComment(
-            id: 'c3',
-            userId: myId,
-            userName: 'Tú',
-            text: '¿Hay alguna actualización? Llevo dos días sin noticias.',
-            createdAt: now.subtract(const Duration(days: 2, hours: 3)),
-          ),
-          IncidentComment(
-            id: 'c4',
-            userId: 'staff_01',
-            userName: 'Carlos Ferrera',
-            text: 'Ya está arreglado. Gracias por reportarlo.',
-            createdAt: now.subtract(const Duration(days: 1, hours: 1)),
+          ComentarioModel(
+            id: 104,
+            incidenciaId: 3,
+            usuarioId: 10,
+            comentario: 'Ya está arreglado. Gracias por reportarlo.',
+            fechaCreacion: now.subtract(const Duration(days: 1, hours: 1)),
+            usuarioNombre: 'Carlos Ferrera',
           ),
         ],
       ),
       IncidentModel(
-        id: '4',
-        userId: 'u_otro2',
-        title: 'Bache en calzada',
-        description:
-            'Bache de considerable tamaño a la entrada de la '
+        id: 4,
+        usuarioId: 5,
+        categoriaId: 4,
+        titulo: 'Bache en calzada',
+        descripcion: 'Bache de considerable tamaño a la entrada de la '
             'urbanización Los Álamos. Ya ha provocado al menos un pinchazo '
             'conocido. Muy peligroso para motos.',
-        category: 'viales',
-        status: IncidentStatus.pending,
-        priority: IncidentPriority.high,
-        imageUrl: 'https://picsum.photos/seed/road/800/400',
-        address: 'Ctra. de Sevilla, km 3',
-        latitude: 37.6080,
-        longitude: -5.7920,
-        createdAt: now.subtract(const Duration(hours: 5)),
-        statusHistory: [
-          StatusHistoryEntry(
-            status: IncidentStatus.pending,
-            changedAt: now.subtract(const Duration(hours: 5)),
-            comment: 'Incidencia registrada',
-            changedBy: 'u_otro2',
-          ),
-        ],
-        comments: [],
+        fechaCreacion: now.subtract(const Duration(hours: 5)),
+        estado: IncidentEstado.pendiente,
+        categoriaNombre: 'Viales',
+        usuarioNombre: 'Ana Martínez',
+        comentarios: [],
       ),
     ];
   }

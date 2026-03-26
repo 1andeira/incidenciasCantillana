@@ -1,80 +1,60 @@
 // ─────────────────────────────────────────
 // lib/models/userModel.dart
+// Mapeado a la tabla `usuarios`
 // ─────────────────────────────────────────
 
-enum UserRole { citizen, staff, admin }
-
 class UserModel {
-  final String id;
-  final String name;
-  final String email;
-  final String? phone;
-  final String? avatarUrl;
-  final UserRole role;
-  final DateTime createdAt;
+  final int id;
+  final String nombre;
+  final String? email; // UNIQUE en BD, nullable
+  final String? telefono; // UNIQUE en BD, nullable
+  final DateTime fechaRegistro;
+
+  // `contrasena` nunca se almacena en el modelo por seguridad
 
   const UserModel({
     required this.id,
-    required this.name,
-    required this.email,
-    this.phone,
-    this.avatarUrl,
-    this.role = UserRole.citizen,
-    required this.createdAt,
+    required this.nombre,
+    this.email,
+    this.telefono,
+    required this.fechaRegistro,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-    id: json['id'] as String,
-    name: json['name'] as String,
-    email: json['email'] as String,
-    phone: json['phone'] as String?,
-    avatarUrl: json['avatarUrl'] as String?,
-    role: UserRole.values.firstWhere(
-      (r) => r.name == json['role'],
-      orElse: () => UserRole.citizen,
-    ),
-    createdAt: DateTime.parse(json['createdAt'] as String),
+    id: json['id'] as int,
+    nombre: json['nombre'] as String,
+    email: json['email'] as String?,
+    telefono: json['telefono'] as String?,
+    fechaRegistro: DateTime.parse(json['fecha_registro'] as String),
   );
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'name': name,
+    'nombre': nombre,
     'email': email,
-    'phone': phone,
-    'avatarUrl': avatarUrl,
-    'role': role.name,
-    'createdAt': createdAt.toIso8601String(),
+    'telefono': telefono,
+    'fecha_registro': fechaRegistro.toIso8601String(),
   };
 
-  UserModel copyWith({
-    String? name,
-    String? email,
-    String? phone,
-    String? avatarUrl,
-    UserRole? role,
-  }) => UserModel(
-    id: id,
-    name: name ?? this.name,
-    email: email ?? this.email,
-    phone: phone ?? this.phone,
-    avatarUrl: avatarUrl ?? this.avatarUrl,
-    role: role ?? this.role,
-    createdAt: createdAt,
-  );
+  UserModel copyWith({String? nombre, String? email, String? telefono}) =>
+      UserModel(
+        id: id,
+        nombre: nombre ?? this.nombre,
+        email: email ?? this.email,
+        telefono: telefono ?? this.telefono,
+        fechaRegistro: fechaRegistro,
+      );
 
   String get initials {
-    final parts = name.trim().split(' ');
+    final parts = nombre.trim().split(' ');
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return name.isNotEmpty ? name[0].toUpperCase() : '?';
+    return nombre.isNotEmpty ? nombre[0].toUpperCase() : '?';
   }
 
-  String get roleLabel => switch (role) {
-    UserRole.citizen => 'Ciudadano',
-    UserRole.staff => 'Personal municipal',
-    UserRole.admin => 'Administrador',
-  };
+  /// Identificador visible: email si existe, si no teléfono
+  String get contacto => email ?? telefono ?? 'Sin contacto';
 
   @override
   bool operator ==(Object other) =>

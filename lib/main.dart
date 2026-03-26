@@ -1,15 +1,37 @@
-// lib/main.dart
+// ─────────────────────────────────────────
+// main.dart
+// Punto de entrada de Cantillana Incidencias
+// ─────────────────────────────────────────
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:cantillana_incidencias/controllers/AuthController.dart';
-import 'package:cantillana_incidencias/router/app_router.dart';
-import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 
-void main() {
+import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
+import 'package:cantillana_incidencias/config/router.dart';
+import 'package:cantillana_incidencias/controllers/AuthController.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Registrar AuthController globalmente antes de arrancar
+
+  // Fuerza orientación vertical
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  // Estilo de la barra de estado
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ),
+  );
+
+  // Registro del AuthController de forma permanente
+  // (IncidentController se registra en CitizenHomeScreen via Get.put)
   Get.put(AuthController(), permanent: true);
+
   runApp(const CantillanaApp());
 }
 
@@ -18,26 +40,30 @@ class CantillanaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // El router se construye UNA VEZ y se reutiliza
+    final router = buildRouter();
+
     return MaterialApp.router(
       title: 'Cantillana Incidencias',
       debugShowCheckedModeBanner: false,
 
-      // ── TEMA CLARO: Rojo del escudo con fondos verde oscuro ───────────────────
-      theme: CantillanaTheme.lightTheme,
+      // ── Tema ──────────────────────────────
+      theme: CantillanaTheme.themeData,
+      darkTheme: CantillanaTheme.themeData,
+      themeMode: ThemeMode.dark,
 
-      // ── TEMA OSCURO: Adaptación oscura con rojo ───────────────────────────
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: CantillanaTheme.rojo,
-          brightness: Brightness.dark,
-        ),
-      ),
+      // ── Router (GoRouter + GetX) ───────────
+      routerConfig: router,
 
-      // ── OPCIÓN ALTERNATIVA: Descomentar para usar tema DORADO ─────────────
-      // theme: CantillanaTheme.lightThemeDorado,
-      themeMode: ThemeMode.system,
-      routerConfig: AppRouter.router,
+      // ── Localización ──────────────────────
+      // Asegúrate de tener `intl` y el delegate de localización si usas
+      // DateFormat con locale 'es'. En caso contrario quita este bloque.
+      // localizationsDelegates: const [
+      //   GlobalMaterialLocalizations.delegate,
+      //   GlobalWidgetsLocalizations.delegate,
+      //   GlobalCupertinoLocalizations.delegate,
+      // ],
+      // supportedLocales: const [Locale('es', 'ES')],
     );
   }
 }
