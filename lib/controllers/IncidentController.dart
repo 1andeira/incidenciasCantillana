@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────
 
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
 import 'package:cantillana_incidencias/models/categoriaModel.dart';
 import 'package:cantillana_incidencias/models/incidentModel.dart';
@@ -24,6 +25,10 @@ class IncidentController extends GetxController {
   var hasError = false.obs;
   var errorMessage = ''.obs;
   var isDetailLoading = false.obs;
+
+  // ── Imágenes ────────────────────────────────────────────────────────────
+  final _imagePicker = ImagePicker();
+  final pendingImages = <String>[].obs;
 
   // ── Filtros ─────────────────────────────────────────────────────────────
   var searchQuery = ''.obs;
@@ -205,6 +210,58 @@ class IncidentController extends GetxController {
             incident.comentarios.where((c) => c.id != comentarioId).toList(),
       ),
     );
+  }
+
+  // ── Gestión de imágenes ─────────────────────────────────────────────────
+  /// Abre el selector de imágenes de la galería
+  Future<void> pickImagesFromGallery() async {
+    try {
+      final pickedFiles = await _imagePicker.pickMultiImage(
+        imageQuality: 85,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+
+      if (pickedFiles.isNotEmpty) {
+        for (final file in pickedFiles) {
+          if (!pendingImages.contains(file.path)) {
+            pendingImages.add(file.path);
+          }
+        }
+      }
+    } catch (e) {
+      // Manejo de error (usuario canceló o permisos denegados)
+    }
+  }
+
+  /// Abre la cámara para capturar una imagen
+  Future<void> pickImageFromCamera() async {
+    try {
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+
+      if (pickedFile != null) {
+        if (!pendingImages.contains(pickedFile.path)) {
+          pendingImages.add(pickedFile.path);
+        }
+      }
+    } catch (e) {
+      // Manejo de error (usuario canceló o permisos denegados)
+    }
+  }
+
+  /// Elimina una imagen del conjunto pendiente
+  void removeImage(String imagePath) {
+    pendingImages.removeWhere((img) => img == imagePath);
+  }
+
+  /// Limpia todas las imágenes pendientes
+  void clearPendingImages() {
+    pendingImages.clear();
   }
 
   // ── Filtros ──────────────────────────────────────────────────────────────────

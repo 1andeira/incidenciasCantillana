@@ -3,6 +3,7 @@
 // Formulario de nueva incidencia
 // ─────────────────────────────────────────
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
@@ -31,6 +32,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
 
   CategoriaModel? _selectedCategoria;
   bool _isSubmitting = false;
+  List<String> _selectedImages = []; // Imágenes localmente seleccionadas
 
   late final AnimationController _animCtrl;
   late final Animation<double> _fadeAnim;
@@ -57,6 +59,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     _animCtrl.dispose();
     _tituloCtrl.dispose();
     _descripcionCtrl.dispose();
+    _ctrl.clearPendingImages(); // Limpia imágenes al salir
     super.dispose();
   }
 
@@ -82,11 +85,13 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
       descripcion: _descripcionCtrl.text.trim(),
       fechaCreacion: DateTime.now(),
       estado: IncidentEstado.pendiente,
+      imagenes: _selectedImages,
       categoriaNombre: _selectedCategoria!.nombre,
       usuarioNombre: _auth.user?.nombre ?? 'Desconocido',
     );
 
     _ctrl.addIncident(newIncident);
+    _ctrl.clearPendingImages();
 
     if (mounted) {
       setState(() => _isSubmitting = false);
@@ -199,8 +204,20 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
 
                   const SizedBox(height: 28),
 
+                  // ── Adjuntar imágenes ───────────────────────────────
+                  _SectionLabel(text: 'Imágenes (opcional)'),
+                  const SizedBox(height: 8),
+                  _buildImagePickerButtons(),
+
+                  if (_selectedImages.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _buildImagePreviewGallery(),
+                  ],
+
+                  const SizedBox(height: 28),
+
                   // ── Resumen antes de enviar ─────────────────────────────
-                  Obx(() {
+                  Builder(builder: (context) {
                     final hasData = _tituloCtrl.text.isNotEmpty ||
                         _descripcionCtrl.text.isNotEmpty ||
                         _selectedCategoria != null;
@@ -424,6 +441,139 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                   const BorderSide(color: CantillanaTheme.rojo, width: 3)),
           errorStyle: const TextStyle(color: Colors.white),
         ),
+      ),
+    );
+  }
+
+  // ── Botones para adjuntar imágenes ──────────────────────────────────────
+  Widget _buildImagePickerButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              await _ctrl.pickImagesFromGallery();
+              setState(() {
+                _selectedImages = List.from(_ctrl.pendingImages);
+              });
+            },
+            icon: const Icon(Icons.image_outlined, size: 18),
+            label: const Text('Galería'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: CantillanaTheme.dorado,
+              side: const BorderSide(color: CantillanaTheme.dorado, width: 2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              await _ctrl.pickImageFromCamera();
+              setState(() {
+                _selectedImages = List.from(_ctrl.pendingImages);
+              });
+            },
+            icon: const Icon(Icons.camera_alt_outlined, size: 18),
+            label: const Text('Cámara'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: CantillanaTheme.dorado,
+              side: const BorderSide(color: CantillanaTheme.dorado, width: 2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Galería de vista previa de imágenes ─────────────────────────────────
+  Widget _buildImagePreviewGallery() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E4023),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.image_outlined, size: 14, color: Colors.white38),
+              const SizedBox(width: 5),
+              Text('${_selectedImages.length} imagen(es)',
+                  style: const TextStyle(color: Colors.white38, fontSize: 11)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 100,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _selectedImages.length,
+              itemBuilder: (context, index) {
+                final imagePath = _selectedImages[index];
+                return Stack(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white24, width: 1),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(imagePath),
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 100,
+                            height: 100,
+                            color: Colors.white10,
+                            child: const Icon(Icons.image_not_supported,
+                                color: Colors.white30),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 12,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedImages.removeAt(index);
+                            _ctrl.removeImage(imagePath);
+                          });
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: CantillanaTheme.rojo.withOpacity(0.8),
+                            shape: BoxShape.circle,
+                          ),
+                          padding: const EdgeInsets.all(4),
+                          child: const Icon(Icons.close,
+                              size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

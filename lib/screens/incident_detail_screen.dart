@@ -3,6 +3,7 @@
 // Detalle completo de una incidencia
 // ─────────────────────────────────────────
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
@@ -302,6 +303,100 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                   ),
 
                   const SizedBox(height: 24),
+
+                  // ── Galería de imágenes ───────────────────────────────
+                  if (incident.hasImages) ...[
+                    const Text('Imágenes',
+                        style: TextStyle(
+                            color: CantillanaTheme.dorado,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3)),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 120,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: incident.imagenes.length,
+                        itemBuilder: (context, index) {
+                          final imagePath = incident.imagenes[index];
+                          return GestureDetector(
+                            onTap: () {
+                              // Mostrar imagen en fullscreen
+                              showDialog(
+                                context: context,
+                                builder: (_) => GestureDetector(
+                                  onTap: () => Navigator.pop(context),
+                                  child: Container(
+                                    color: Colors.black87,
+                                    child: InteractiveViewer(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          child: Image.file(
+                                            File(imagePath),
+                                            fit: BoxFit.contain,
+                                            errorBuilder: (_, __, ___) =>
+                                                Container(
+                                              color: Colors.white10,
+                                              child: const Icon(
+                                                  Icons.image_not_supported,
+                                                  color: Colors.white30),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border:
+                                    Border.all(color: Colors.white12, width: 1),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Stack(
+                                  children: [
+                                    Image.file(
+                                      File(imagePath),
+                                      width: 120,
+                                      height: 120,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        width: 120,
+                                        height: 120,
+                                        color: Colors.white10,
+                                        child: const Icon(
+                                            Icons.image_not_supported,
+                                            color: Colors.white30),
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 120,
+                                      height: 120,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black26,
+                                      ),
+                                      child: const Icon(Icons.zoom_in,
+                                          color: Colors.white54, size: 24),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
 
                   // ── Comentarios ───────────────────────────────────────
                   Row(

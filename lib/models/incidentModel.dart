@@ -16,6 +16,7 @@ class IncidentModel {
   final String descripcion;
   final DateTime fechaCreacion;
   final IncidentEstado estado; // BD almacena como text
+  final List<String> imagenes; // Rutas de archivos o URLs de imágenes
 
   // ── Campos enriquecidos (JOINs) – no están en la tabla incidencias ──────
   final String? categoriaNombre;
@@ -30,68 +31,78 @@ class IncidentModel {
     required this.descripcion,
     required this.fechaCreacion,
     this.estado = IncidentEstado.pendiente,
+    this.imagenes = const [],
     this.categoriaNombre,
     this.usuarioNombre,
     this.comentarios = const [],
   });
 
   factory IncidentModel.fromJson(Map<String, dynamic> json) => IncidentModel(
-    id: json['id'] as int,
-    usuarioId: json['usuario_id'] as int,
-    categoriaId: json['categoria_id'] as int,
-    titulo: json['titulo'] as String,
-    descripcion: json['descripcion'] as String,
-    fechaCreacion: DateTime.parse(json['fecha_creacion'] as String),
-    estado: IncidentEstado.values.firstWhere(
-      (e) => e.name == (json['estado'] as String? ?? 'pendiente'),
-      orElse: () => IncidentEstado.pendiente,
-    ),
-    categoriaNombre: json['categoria_nombre'] as String?,
-    usuarioNombre: json['usuario_nombre'] as String?,
-    comentarios: (json['comentarios'] as List<dynamic>? ?? [])
-        .map((e) => ComentarioModel.fromJson(e as Map<String, dynamic>))
-        .toList(),
-  );
+        id: json['id'] as int,
+        usuarioId: json['usuario_id'] as int,
+        categoriaId: json['categoria_id'] as int,
+        titulo: json['titulo'] as String,
+        descripcion: json['descripcion'] as String,
+        fechaCreacion: DateTime.parse(json['fecha_creacion'] as String),
+        estado: IncidentEstado.values.firstWhere(
+          (e) => e.name == (json['estado'] as String? ?? 'pendiente'),
+          orElse: () => IncidentEstado.pendiente,
+        ),
+        imagenes: (json['imagenes'] as List<dynamic>? ?? [])
+            .map((e) => e as String)
+            .toList(),
+        categoriaNombre: json['categoria_nombre'] as String?,
+        usuarioNombre: json['usuario_nombre'] as String?,
+        comentarios: (json['comentarios'] as List<dynamic>? ?? [])
+            .map((e) => ComentarioModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
 
   /// Solo incluye columnas de la tabla `incidencias`
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'usuario_id': usuarioId,
-    'categoria_id': categoriaId,
-    'titulo': titulo,
-    'descripcion': descripcion,
-    'fecha_creacion': fechaCreacion.toIso8601String(),
-    'estado': estado.name,
-  };
+        'id': id,
+        'usuario_id': usuarioId,
+        'categoria_id': categoriaId,
+        'titulo': titulo,
+        'descripcion': descripcion,
+        'fecha_creacion': fechaCreacion.toIso8601String(),
+        'estado': estado.name,
+        'imagenes': imagenes,
+      };
 
   IncidentModel copyWith({
     int? categoriaId,
     String? titulo,
     String? descripcion,
     IncidentEstado? estado,
+    List<String>? imagenes,
     String? categoriaNombre,
     String? usuarioNombre,
     List<ComentarioModel>? comentarios,
-  }) => IncidentModel(
-    id: id,
-    usuarioId: usuarioId,
-    categoriaId: categoriaId ?? this.categoriaId,
-    titulo: titulo ?? this.titulo,
-    descripcion: descripcion ?? this.descripcion,
-    fechaCreacion: fechaCreacion,
-    estado: estado ?? this.estado,
-    categoriaNombre: categoriaNombre ?? this.categoriaNombre,
-    usuarioNombre: usuarioNombre ?? this.usuarioNombre,
-    comentarios: comentarios ?? this.comentarios,
-  );
+  }) =>
+      IncidentModel(
+        id: id,
+        usuarioId: usuarioId,
+        categoriaId: categoriaId ?? this.categoriaId,
+        titulo: titulo ?? this.titulo,
+        descripcion: descripcion ?? this.descripcion,
+        fechaCreacion: fechaCreacion,
+        estado: estado ?? this.estado,
+        imagenes: imagenes ?? this.imagenes,
+        categoriaNombre: categoriaNombre ?? this.categoriaNombre,
+        usuarioNombre: usuarioNombre ?? this.usuarioNombre,
+        comentarios: comentarios ?? this.comentarios,
+      );
 
   // ── Helpers de presentación ─────────────────────────────────────────────
   String get estadoLabel => switch (estado) {
-    IncidentEstado.pendiente => 'Pendiente',
-    IncidentEstado.en_proceso => 'En Proceso',
-    IncidentEstado.resuelta => 'Resuelta',
-    IncidentEstado.rechazada => 'Rechazada',
-  };
+        IncidentEstado.pendiente => 'Pendiente',
+        IncidentEstado.en_proceso => 'En Proceso',
+        IncidentEstado.resuelta => 'Resuelta',
+        IncidentEstado.rechazada => 'Rechazada',
+      };
+
+  bool get hasImages => imagenes.isNotEmpty;
 
   @override
   bool operator ==(Object other) =>

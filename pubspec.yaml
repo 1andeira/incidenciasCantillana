@@ -22,6 +22,15 @@ dependencies:
   # Iconos de Material
   cupertino_icons: ^1.0.8
 
+  # Selección de imágenes desde galería/cámara
+  image_picker: ^1.0.0
+
+  # Permisos de sistema (cámara, galería)
+  permission_handler: ^11.4.0
+
+  # Carga eficiente de imágenes
+  cached_network_image: ^3.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
