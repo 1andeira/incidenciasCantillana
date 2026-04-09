@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────
 
 import 'package:cantillana_incidencias/models/comentarioModel.dart';
+import 'package:cantillana_incidencias/models/ubicacionModel.dart';
 
 /// Valores posibles del campo `estado` en la BD
 enum IncidentEstado { pendiente, en_proceso, resuelta, rechazada }
@@ -17,6 +18,7 @@ class IncidentModel {
   final DateTime fechaCreacion;
   final IncidentEstado estado; // BD almacena como text
   final List<String> imagenes; // Rutas de archivos o URLs de imágenes
+  final UbicacionModel? ubicacion; // Coordenadas GPS opcionales (nullable)
 
   // ── Campos enriquecidos (JOINs) – no están en la tabla incidencias ──────
   final String? categoriaNombre;
@@ -32,6 +34,7 @@ class IncidentModel {
     required this.fechaCreacion,
     this.estado = IncidentEstado.pendiente,
     this.imagenes = const [],
+    this.ubicacion,
     this.categoriaNombre,
     this.usuarioNombre,
     this.comentarios = const [],
@@ -51,6 +54,9 @@ class IncidentModel {
         imagenes: (json['imagenes'] as List<dynamic>? ?? [])
             .map((e) => e as String)
             .toList(),
+        ubicacion: json['ubicacion'] != null
+            ? UbicacionModel.fromJson(json['ubicacion'] as Map<String, dynamic>)
+            : null,
         categoriaNombre: json['categoria_nombre'] as String?,
         usuarioNombre: json['usuario_nombre'] as String?,
         comentarios: (json['comentarios'] as List<dynamic>? ?? [])
@@ -68,6 +74,7 @@ class IncidentModel {
         'fecha_creacion': fechaCreacion.toIso8601String(),
         'estado': estado.name,
         'imagenes': imagenes,
+        'ubicacion': ubicacion?.toJson(),
       };
 
   IncidentModel copyWith({
@@ -76,6 +83,8 @@ class IncidentModel {
     String? descripcion,
     IncidentEstado? estado,
     List<String>? imagenes,
+    UbicacionModel? ubicacion,
+    bool clearUbicacion = false,
     String? categoriaNombre,
     String? usuarioNombre,
     List<ComentarioModel>? comentarios,
@@ -89,12 +98,13 @@ class IncidentModel {
         fechaCreacion: fechaCreacion,
         estado: estado ?? this.estado,
         imagenes: imagenes ?? this.imagenes,
+        ubicacion: clearUbicacion ? null : (ubicacion ?? this.ubicacion),
         categoriaNombre: categoriaNombre ?? this.categoriaNombre,
         usuarioNombre: usuarioNombre ?? this.usuarioNombre,
         comentarios: comentarios ?? this.comentarios,
       );
 
-  // ── Helpers de presentación ─────────────────────────────────────────────
+  // ── Helpers ─────────────────────────────────────────────────────────────
   String get estadoLabel => switch (estado) {
         IncidentEstado.pendiente => 'Pendiente',
         IncidentEstado.en_proceso => 'En Proceso',
@@ -103,6 +113,7 @@ class IncidentModel {
       };
 
   bool get hasImages => imagenes.isNotEmpty;
+  bool get hasUbicacion => ubicacion != null;
 
   @override
   bool operator ==(Object other) =>

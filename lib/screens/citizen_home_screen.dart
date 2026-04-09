@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
@@ -65,7 +66,6 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ── AppBar ──────────────────────────────────────────────────────────
       appBar: AppBar(
         title: Row(
           children: [
@@ -95,18 +95,14 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Cantillana',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
-                ),
-                Text(
-                  'Incidencias',
-                  style:
-                      TextStyle(fontSize: 11, color: Colors.white70, height: 1),
-                ),
+                Text('Cantillana',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white)),
+                Text('Incidencias',
+                    style: TextStyle(
+                        fontSize: 11, color: Colors.white70, height: 1)),
               ],
             ),
           ],
@@ -114,7 +110,6 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
         actions: [
           Obx(() {
             final initials = _auth.user?.initials ?? '?';
-            // Access an observable to trigger Obx updates
             final _ = _auth.user?.nombre;
             return GestureDetector(
               onTap: () => context.go('/profile'),
@@ -128,27 +123,21 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                   border: Border.all(color: Colors.white, width: 1.5),
                 ),
                 child: Center(
-                  child: Text(
-                    initials,
-                    style: const TextStyle(
-                      color: Colors.black87,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
+                  child: Text(initials,
+                      style: const TextStyle(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13)),
                 ),
               ),
             );
           }),
         ],
       ),
-
-      // ── Cuerpo ──────────────────────────────────────────────────────────
       body: Column(
         children: [
-          // ── Resumen de estadísticas ──────────────────────────────────────
+          // ── Estadísticas ──────────────────────────────────────────────
           Obx(() {
-            // Access observables to trigger Obx updates
             final _ = _ctrl.totalCount +
                 _ctrl.pendingCount +
                 _ctrl.inProgressCount +
@@ -156,7 +145,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
             return _StatsRow(ctrl: _ctrl);
           }),
 
-          // ── Barra de búsqueda + filtros ──────────────────────────────────
+          // ── Búsqueda + filtros ────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Row(
@@ -213,15 +202,13 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                 Obx(() {
                   final _ = _ctrl.hasActiveFilters;
                   return _FilterButton(
-                    active: _ctrl.hasActiveFilters,
-                    onTap: _showFilters,
-                  );
+                      active: _ctrl.hasActiveFilters, onTap: _showFilters);
                 }),
               ],
             ),
           ),
 
-          // ── Chips de filtro activo rápido ────────────────────────────────
+          // ── Filtros activos ───────────────────────────────────────────
           Obx(() {
             final hasFilters = _ctrl.hasActiveFilters;
             final _ = _ctrl.hasActiveFilters;
@@ -241,31 +228,27 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                       _ctrl.clearFilters();
                       _searchCtrl.clear();
                     },
-                    child: Text(
-                      'Limpiar todo',
-                      style: TextStyle(
-                          color: CantillanaTheme.dorado,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600),
-                    ),
+                    child: Text('Limpiar todo',
+                        style: TextStyle(
+                            color: CantillanaTheme.dorado,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
             );
           }),
 
-          // ── Lista de incidencias ─────────────────────────────────────────
+          // ── Lista ─────────────────────────────────────────────────────
           Expanded(
             child: Obx(() {
               final isLoading = _ctrl.isLoading.value;
               final hasError = _ctrl.hasError.value;
               final errorMessage = _ctrl.errorMessage.value;
               final list = _ctrl.incidents;
-              // Access all relevant observables to ensure proper GetX update
               final _ = [
                 _ctrl.isLoading.value,
                 _ctrl.hasError.value,
-                _ctrl.errorMessage.value,
                 _ctrl.incidents.length
               ];
               if (isLoading) {
@@ -276,9 +259,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                 return _ErrorView(
                     message: errorMessage, onRetry: _ctrl.refresh);
               }
-              if (list.isEmpty) {
-                return const _EmptyView();
-              }
+              if (list.isEmpty) return const _EmptyView();
               return RefreshIndicator(
                 color: CantillanaTheme.dorado,
                 backgroundColor: CantillanaTheme.verdeOscuro,
@@ -299,8 +280,6 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
           ),
         ],
       ),
-
-      // ── FAB – Nueva incidencia ────────────────────────────────────────────
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.go('/create-incident'),
         backgroundColor: CantillanaTheme.rojo,
@@ -318,7 +297,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
 }
 
 // ─────────────────────────────────────────
-// Widget: fila de estadísticas
+// Estadísticas
 // ─────────────────────────────────────────
 class _StatsRow extends StatelessWidget {
   final IncidentController ctrl;
@@ -364,11 +343,9 @@ class _StatChip extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          value.toString(),
-          style: TextStyle(
-              color: color, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        Text(value.toString(),
+            style: TextStyle(
+                color: color, fontSize: 20, fontWeight: FontWeight.bold)),
         Text(label,
             style: const TextStyle(color: Colors.white54, fontSize: 10)),
       ],
@@ -377,7 +354,7 @@ class _StatChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
-// Widget: tarjeta de incidencia
+// Tarjeta de incidencia
 // ─────────────────────────────────────────
 class _IncidentCard extends StatelessWidget {
   final IncidentModel incident;
@@ -391,6 +368,23 @@ class _IncidentCard extends StatelessWidget {
     required this.iconEstado,
     required this.onTap,
   });
+
+  Future<void> _abrirEnMaps(BuildContext context) async {
+    final uri = Uri.parse(incident.ubicacion!.googleMapsUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo abrir Google Maps'),
+            backgroundColor: CantillanaTheme.rojo,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -410,16 +404,16 @@ class _IncidentCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Título + estado ──────────────────────────────────────
               Row(
                 children: [
                   Expanded(
                     child: Text(
                       incident.titulo,
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -432,6 +426,8 @@ class _IncidentCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
+
+              // ── Descripción ─────────────────────────────────────────
               Text(
                 incident.descripcion,
                 style: const TextStyle(color: Colors.white70, fontSize: 12.5),
@@ -439,6 +435,8 @@ class _IncidentCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 10),
+
+              // ── Meta: categoría · fecha · ubicación · comentarios ───
               Row(
                 children: [
                   if (incident.categoriaNombre != null) ...[
@@ -451,33 +449,62 @@ class _IncidentCard extends StatelessWidget {
                         border: Border.all(
                             color: CantillanaTheme.dorado.withOpacity(0.5)),
                       ),
-                      child: Text(
-                        incident.categoriaNombre!,
-                        style: TextStyle(
-                          color: CantillanaTheme.dorado,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: Text(incident.categoriaNombre!,
+                          style: TextStyle(
+                              color: CantillanaTheme.dorado,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(width: 8),
                   ],
-                  Icon(Icons.calendar_today, size: 12, color: Colors.white38),
+                  const Icon(Icons.calendar_today,
+                      size: 12, color: Colors.white38),
                   const SizedBox(width: 4),
-                  Text(
-                    df.format(incident.fechaCreacion),
-                    style: const TextStyle(color: Colors.white38, fontSize: 11),
-                  ),
+                  Text(df.format(incident.fechaCreacion),
+                      style:
+                          const TextStyle(color: Colors.white38, fontSize: 11)),
                   const Spacer(),
+
+                  // ── Badge de ubicación: toca para abrir Maps ─────────
+                  if (incident.hasUbicacion) ...[
+                    GestureDetector(
+                      onTap: () => _abrirEnMaps(context),
+                      // Evitar que el tap suba al InkWell del card
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: CantillanaTheme.dorado.withOpacity(0.13),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: CantillanaTheme.dorado.withOpacity(0.55)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.location_on,
+                                size: 11, color: CantillanaTheme.dorado),
+                            SizedBox(width: 3),
+                            Text('Ver mapa',
+                                style: TextStyle(
+                                    color: CantillanaTheme.dorado,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+
                   if (incident.comentarios.isNotEmpty) ...[
                     const Icon(Icons.comment_outlined,
                         size: 14, color: Colors.white38),
                     const SizedBox(width: 3),
-                    Text(
-                      incident.comentarios.length.toString(),
-                      style:
-                          const TextStyle(color: Colors.white38, fontSize: 11),
-                    ),
+                    Text(incident.comentarios.length.toString(),
+                        style: const TextStyle(
+                            color: Colors.white38, fontSize: 11)),
                   ],
                   const SizedBox(width: 6),
                   const Icon(Icons.chevron_right,
@@ -493,7 +520,7 @@ class _IncidentCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
-// Widget: badge de estado
+// Badge de estado
 // ─────────────────────────────────────────
 class _EstadoBadge extends StatelessWidget {
   final IncidentEstado estado;
@@ -530,7 +557,7 @@ class _EstadoBadge extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
-// Widget: botón de filtros
+// Botón de filtros
 // ─────────────────────────────────────────
 class _FilterButton extends StatelessWidget {
   final bool active;
@@ -547,10 +574,7 @@ class _FilterButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: active ? CantillanaTheme.rojo : const Color(0xFF1B5E20),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: active ? CantillanaTheme.dorado : CantillanaTheme.dorado,
-            width: 1.5,
-          ),
+          border: Border.all(color: CantillanaTheme.dorado, width: 1.5),
         ),
         child: Stack(
           alignment: Alignment.center,
@@ -598,7 +622,6 @@ class _FiltersSheet extends StatelessWidget {
               Border(top: BorderSide(color: CantillanaTheme.dorado, width: 3)),
         ),
         child: Obx(() {
-          // Access all relevant observables to ensure proper GetX update
           final _ = ctrl.onlyMine.value.toString() +
               ctrl.selectedEstado.value +
               (ctrl.selectedCategoriaId.value?.toString() ?? '') +
@@ -619,13 +642,11 @@ class _FiltersSheet extends StatelessWidget {
                   ),
                 ),
               ),
-              const Text(
-                'Filtros',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold),
-              ),
+              const Text('Filtros',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
               _FilterSection(title: 'Mis incidencias', children: [
                 SwitchListTile(

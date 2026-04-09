@@ -7,12 +7,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
 import 'package:cantillana_incidencias/controllers/IncidentController.dart';
 import 'package:cantillana_incidencias/models/categoriaModel.dart';
 import 'package:cantillana_incidencias/models/incidentModel.dart';
+import 'package:cantillana_incidencias/models/ubicacionModel.dart';
+import 'package:cantillana_incidencias/screens/map_picker_screen.dart';
 
 class CreateIncidentScreen extends StatefulWidget {
   const CreateIncidentScreen({super.key});
@@ -31,14 +34,14 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
   final _descripcionCtrl = TextEditingController();
 
   CategoriaModel? _selectedCategoria;
+  UbicacionModel? _ubicacion;
   bool _isSubmitting = false;
-  List<String> _selectedImages = []; // Imágenes localmente seleccionadas
+  List<String> _selectedImages = [];
 
   late final AnimationController _animCtrl;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
 
-  // ── Límites de carácter ─────────────────────────────────────────────────
   static const int _tituloMax = 80;
   static const int _descMax = 500;
 
@@ -59,11 +62,26 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     _animCtrl.dispose();
     _tituloCtrl.dispose();
     _descripcionCtrl.dispose();
-    _ctrl.clearPendingImages(); // Limpia imágenes al salir
+    _ctrl.clearPendingImages();
     super.dispose();
   }
 
-  // ── Submit ───────────────────────────────────────────────────────────────
+  // ── Selector de ubicación ─────────────────────────────────────────────────
+
+  Future<void> _abrirMapPicker() async {
+    final result = await Navigator.of(context).push<UbicacionModel?>(
+      MaterialPageRoute(
+        builder: (_) => MapPickerScreen(initialUbicacion: _ubicacion),
+        fullscreenDialog: true,
+      ),
+    );
+    if (result != null) setState(() => _ubicacion = result);
+  }
+
+  void _quitarUbicacion() => setState(() => _ubicacion = null);
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_selectedCategoria == null) {
@@ -72,8 +90,6 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     }
 
     setState(() => _isSubmitting = true);
-
-    // Simula INSERT INTO incidencias
     await Future.delayed(const Duration(milliseconds: 700));
 
     final userId = _auth.userId != 0 ? _auth.userId : 1;
@@ -86,6 +102,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
       fechaCreacion: DateTime.now(),
       estado: IncidentEstado.pendiente,
       imagenes: _selectedImages,
+      ubicacion: _ubicacion,
       categoriaNombre: _selectedCategoria!.nombre,
       usuarioNombre: _auth.user?.nombre ?? 'Desconocido',
     );
@@ -131,10 +148,11 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     );
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ── AppBar ──────────────────────────────────────────────────────────
       appBar: AppBar(
         title: const Text('Nueva Incidencia'),
         leading: IconButton(
@@ -142,7 +160,6 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
           onPressed: () => context.go('/'),
         ),
       ),
-
       body: FadeTransition(
         opacity: _fadeAnim,
         child: SlideTransition(
@@ -154,7 +171,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Cabecera informativa ────────────────────────────────
+                  // ── Info ───────────────────────────────────────────────
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -163,12 +180,12 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                       border: Border.all(
                           color: CantillanaTheme.dorado.withOpacity(0.4)),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
                         Icon(Icons.info_outline,
                             color: CantillanaTheme.dorado, size: 20),
-                        const SizedBox(width: 10),
-                        const Expanded(
+                        SizedBox(width: 10),
+                        Expanded(
                           child: Text(
                             'Describe el problema con el mayor detalle posible para que podamos atenderte mejor.',
                             style: TextStyle(
@@ -183,28 +200,36 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
 
                   const SizedBox(height: 24),
 
-                  // ── Título ──────────────────────────────────────────────
+                  // ── Título ─────────────────────────────────────────────
                   _SectionLabel(text: 'Título de la incidencia *'),
                   const SizedBox(height: 8),
                   _buildTituloField(),
 
                   const SizedBox(height: 20),
 
-                  // ── Categoría ───────────────────────────────────────────
+                  // ── Categoría ──────────────────────────────────────────
                   _SectionLabel(text: 'Categoría *'),
                   const SizedBox(height: 8),
                   Obx(() => _buildCategoriaGrid(_ctrl.categorias)),
 
                   const SizedBox(height: 20),
 
-                  // ── Descripción ─────────────────────────────────────────
+                  // ── Descripción ────────────────────────────────────────
                   _SectionLabel(text: 'Descripción *'),
                   const SizedBox(height: 8),
                   _buildDescripcionField(),
 
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
-                  // ── Adjuntar imágenes ───────────────────────────────
+                  // ── Ubicación (solo en móvil) ─────────────────────────
+                  if (Platform.isAndroid || Platform.isIOS) ...[
+                    _SectionLabel(text: 'Ubicación en Cantillana (opcional)'),
+                    const SizedBox(height: 8),
+                    _buildUbicacionWidget(),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // ── Imágenes ───────────────────────────────────────────
                   _SectionLabel(text: 'Imágenes (opcional)'),
                   const SizedBox(height: 8),
                   _buildImagePickerButtons(),
@@ -216,7 +241,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
 
                   const SizedBox(height: 28),
 
-                  // ── Resumen antes de enviar ─────────────────────────────
+                  // ── Vista previa ───────────────────────────────────────
                   Builder(builder: (context) {
                     final hasData = _tituloCtrl.text.isNotEmpty ||
                         _descripcionCtrl.text.isNotEmpty ||
@@ -226,12 +251,13 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                       titulo: _tituloCtrl.text,
                       descripcion: _descripcionCtrl.text,
                       categoriaNombre: _selectedCategoria?.nombre,
+                      ubicacion: _ubicacion,
                     );
                   }),
 
                   const SizedBox(height: 16),
 
-                  // ── Botón de envío ──────────────────────────────────────
+                  // ── Enviar ─────────────────────────────────────────────
                   SizedBox(
                     width: double.infinity,
                     height: 52,
@@ -268,6 +294,121 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ── Widget de ubicación ─────────────────────────────────────────────────
+
+  Widget _buildUbicacionWidget() {
+    if (_ubicacion == null) {
+      return GestureDetector(
+        onTap: _abrirMapPicker,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1B5E20),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: CantillanaTheme.dorado, width: 2),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_location_alt_outlined,
+                  color: CantillanaTheme.dorado, size: 22),
+              SizedBox(width: 10),
+              Text(
+                'Marcar en el mapa',
+                style: TextStyle(
+                  color: CantillanaTheme.dorado,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Miniatura del mapa con ubicación seleccionada
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: CantillanaTheme.dorado, width: 2),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Column(
+        children: [
+          SizedBox(
+            height: 160,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(_ubicacion!.latitud, _ubicacion!.longitud),
+                zoom: 16.0,
+              ),
+              markers: {
+                Marker(
+                  markerId: const MarkerId('preview'),
+                  position: LatLng(_ubicacion!.latitud, _ubicacion!.longitud),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueRed),
+                ),
+              },
+              zoomControlsEnabled: false,
+              mapToolbarEnabled: false,
+              myLocationButtonEnabled: false,
+              scrollGesturesEnabled: false,
+              zoomGesturesEnabled: false,
+              rotateGesturesEnabled: false,
+              tiltGesturesEnabled: false,
+              liteModeEnabled: true,
+            ),
+          ),
+          Container(
+            color: const Color(0xFF0E4023),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.pin_drop,
+                    size: 14, color: CantillanaTheme.dorado),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _ubicacion!.coordenadasLabel,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _abrirMapPicker,
+                  icon: const Icon(Icons.edit_location_alt,
+                      size: 15, color: CantillanaTheme.dorado),
+                  label: const Text(
+                    'Cambiar',
+                    style: TextStyle(
+                        color: CantillanaTheme.dorado,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    minimumSize: Size.zero,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: _quitarUbicacion,
+                  child:
+                      const Icon(Icons.close, size: 18, color: Colors.white38),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -325,7 +466,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     );
   }
 
-  // ── Grid de categorías ──────────────────────────────────────────────────
+  // ── Grid categorías ─────────────────────────────────────────────────────
   Widget _buildCategoriaGrid(List<CategoriaModel> categorias) {
     final icons = {
       'Alumbrado': Icons.lightbulb_outline,
@@ -334,13 +475,11 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
       'Viales': Icons.add_road,
       'Otros': Icons.category_outlined,
     };
-
     if (categorias.isEmpty) {
       return const Center(
           child: CircularProgressIndicator(
               color: CantillanaTheme.dorado, strokeWidth: 2));
     }
-
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -445,7 +584,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     );
   }
 
-  // ── Botones para adjuntar imágenes ──────────────────────────────────────
+  // ── Botones de imagen ────────────────────────────────────────────────────
   Widget _buildImagePickerButtons() {
     return Row(
       children: [
@@ -453,9 +592,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
           child: OutlinedButton.icon(
             onPressed: () async {
               await _ctrl.pickImagesFromGallery();
-              setState(() {
-                _selectedImages = List.from(_ctrl.pendingImages);
-              });
+              setState(() => _selectedImages = List.from(_ctrl.pendingImages));
             },
             icon: const Icon(Icons.image_outlined, size: 18),
             label: const Text('Galería'),
@@ -463,8 +600,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
               foregroundColor: CantillanaTheme.dorado,
               side: const BorderSide(color: CantillanaTheme.dorado, width: 2),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+                  borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),
@@ -474,9 +610,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
           child: OutlinedButton.icon(
             onPressed: () async {
               await _ctrl.pickImageFromCamera();
-              setState(() {
-                _selectedImages = List.from(_ctrl.pendingImages);
-              });
+              setState(() => _selectedImages = List.from(_ctrl.pendingImages));
             },
             icon: const Icon(Icons.camera_alt_outlined, size: 18),
             label: const Text('Cámara'),
@@ -484,8 +618,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
               foregroundColor: CantillanaTheme.dorado,
               side: const BorderSide(color: CantillanaTheme.dorado, width: 2),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+                  borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),
@@ -494,7 +627,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     );
   }
 
-  // ── Galería de vista previa de imágenes ─────────────────────────────────
+  // ── Preview de imágenes ──────────────────────────────────────────────────
   Widget _buildImagePreviewGallery() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -608,13 +741,17 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Tarjeta de vista previa antes de enviar
 class _PreviewCard extends StatelessWidget {
   final String titulo, descripcion;
   final String? categoriaNombre;
+  final UbicacionModel? ubicacion;
 
-  const _PreviewCard(
-      {required this.titulo, required this.descripcion, this.categoriaNombre});
+  const _PreviewCard({
+    required this.titulo,
+    required this.descripcion,
+    this.categoriaNombre,
+    this.ubicacion,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -672,7 +809,9 @@ class _PreviewCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis),
           ],
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -696,6 +835,30 @@ class _PreviewCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (ubicacion != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: CantillanaTheme.dorado.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: CantillanaTheme.dorado.withOpacity(0.4)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.location_on,
+                          size: 10, color: CantillanaTheme.dorado),
+                      SizedBox(width: 4),
+                      Text('Con ubicación',
+                          style: TextStyle(
+                              color: CantillanaTheme.dorado,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
             ],
           ),
         ],
