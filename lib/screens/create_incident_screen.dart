@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-
+import 'package:geolocator/geolocator.dart';
 import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
 import 'package:cantillana_incidencias/controllers/IncidentController.dart';
@@ -16,6 +16,7 @@ import 'package:cantillana_incidencias/models/categoriaModel.dart';
 import 'package:cantillana_incidencias/models/incidentModel.dart';
 import 'package:cantillana_incidencias/models/ubicacionModel.dart';
 import 'package:cantillana_incidencias/screens/map_picker_screen.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class CreateIncidentScreen extends StatefulWidget {
   const CreateIncidentScreen({super.key});
@@ -78,6 +79,46 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     if (result != null) setState(() => _ubicacion = result);
   }
 
+  Future<void> _usarUbicacionActual() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showError('Activa el GPS del dispositivo.');
+        return;
+      }
+
+      // permission_handler dispara el diálogo nativo en MIUI correctamente
+      final status = await Permission.locationWhenInUse.request();
+
+      if (status.isDenied || status.isPermanentlyDenied) return;
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      const sw = LatLng(37.570, -5.870);
+      const ne = LatLng(37.660, -5.760);
+
+      if (position.latitude < sw.latitude ||
+          position.latitude > ne.latitude ||
+          position.longitude < sw.longitude ||
+          position.longitude > ne.longitude) {
+        _showError(
+            'Tu ubicación está fuera del término municipal de Cantillana.');
+        return;
+      }
+
+      setState(() => _ubicacion = UbicacionModel(
+            latitud: position.latitude,
+            longitud: position.longitude,
+          ));
+    } catch (e) {
+      _showError('No se pudo obtener la ubicación.');
+    }
+  }
+
   void _quitarUbicacion() => setState(() => _ubicacion = null);
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -138,7 +179,14 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
           children: [
             const Icon(Icons.error_outline, color: Colors.white, size: 16),
             const SizedBox(width: 8),
-            Text(msg),
+            Expanded(
+              child: Text(
+                msg,
+                style: const TextStyle(fontSize: 13),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         backgroundColor: CantillanaTheme.rojo,
@@ -302,33 +350,65 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
 
   Widget _buildUbicacionWidget() {
     if (_ubicacion == null) {
-      return GestureDetector(
-        onTap: _abrirMapPicker,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1B5E20),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: CantillanaTheme.dorado, width: 2),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.add_location_alt_outlined,
-                  color: CantillanaTheme.dorado, size: 22),
-              SizedBox(width: 10),
-              Text(
-                'Marcar en el mapa',
-                style: TextStyle(
-                  color: CantillanaTheme.dorado,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+      return Column(
+        children: [
+          GestureDetector(
+            onTap: _abrirMapPicker,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B5E20),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: CantillanaTheme.dorado, width: 2),
               ),
-            ],
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_location_alt_outlined,
+                      color: CantillanaTheme.dorado, size: 22),
+                  SizedBox(width: 10),
+                  Text(
+                    'Marcar en el mapa',
+                    style: TextStyle(
+                      color: CantillanaTheme.dorado,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: _usarUbicacionActual,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B5E20),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white24, width: 1.5),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.my_location, color: Colors.white70, size: 20),
+                  SizedBox(width: 10),
+                  Text(
+                    'Usar ubicación actual',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       );
     }
 
