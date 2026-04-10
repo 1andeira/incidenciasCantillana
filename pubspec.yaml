@@ -13,6 +13,7 @@ dependencies:
   # Estado reactivo
   get: ^4.6.6
 
+  url_launcher: ^6.3.2
   # Navegación declarativa
   go_router: ^17.2.0
 
@@ -31,7 +32,6 @@ dependencies:
   # Carga eficiente de imágenes
   cached_network_image: ^3.2.0
   google_maps_flutter: ^2.17.0
-  url_launcher: ^6.3.2
   geolocator: ^14.0.2
 
 dev_dependencies:
