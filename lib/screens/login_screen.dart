@@ -21,8 +21,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ── Controladores ──────────────────────
   final _nombreCtrl = TextEditingController();
-  final _credencialCtrl = TextEditingController(); // email o teléfono
-  final _telefonoCtrl = TextEditingController(); // solo en registro
+  final _credencialCtrl = TextEditingController();
+  final _telefonoCtrl = TextEditingController();
   final _contrasenaCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
@@ -88,6 +88,9 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // ── Clave del fix: el Scaffold NO se redimensiona cuando sube el teclado.
+      // El SingleChildScrollView de la tarjeta ya gestiona el scroll interno.
+      resizeToAvoidBottomInset: false,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -184,6 +187,10 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
                       child: SingleChildScrollView(
+                        // El scroll se activa automáticamente cuando el
+                        // teclado reduce el espacio disponible
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
                         padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
                         child: Form(
                           key: _formKey,
@@ -442,6 +449,10 @@ class _LoginScreenState extends State<LoginScreen>
                                   onPressed: () => context.go('/'),
                                 ),
                               ),
+
+                              // Padding extra al fondo para que el scroll
+                              // deje siempre el último elemento visible
+                              const SizedBox(height: 24),
                             ],
                           ),
                         ),

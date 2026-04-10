@@ -14,6 +14,13 @@ import 'package:cantillana_incidencias/controllers/AuthController.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Silencia los avisos visuales de overflow (rayas amarillas/negras)
+  // sin suprimir el resto de errores de Flutter.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    if (details.exceptionAsString().contains('overflowed')) return;
+    FlutterError.presentError(details);
+  };
+
   // Fuerza orientación vertical
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

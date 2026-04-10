@@ -2,24 +2,23 @@
 // lib/screens/map_picker_screen.dart
 // Selector de ubicación restringido al
 // término municipal de Cantillana (Sevilla)
+// Con marcador de ubicación actual
 // ─────────────────────────────────────────
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter/services.dart';
 import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 import 'package:cantillana_incidencias/models/ubicacionModel.dart';
 
-/// Límites aproximados del término municipal de Cantillana.
-/// El mapa no permite al usuario salir de esta área.
-const _cantillanaSW = LatLng(37.570, -5.650);
-const _cantillanaNE = LatLng(37.640, -5.530);
-const _cantillanaCenter = LatLng(37.5997, -5.5936);
-const _defaultZoom = 14.0;
-const _minZoom = 12.0; // No se puede alejar más de esto
+const _cantillanaSW = LatLng(37.570, -5.870);
+const _cantillanaNE = LatLng(37.660, -5.760);
+const _cantillanaCenter = LatLng(37.6109, -5.8235);
+const _defaultZoom = 15.0;
+const _minZoom = 13.0;
 
 class MapPickerScreen extends StatefulWidget {
-  /// Si ya existe una ubicación previa, se muestra el pin en esa posición.
   final UbicacionModel? initialUbicacion;
 
   const MapPickerScreen({super.key, this.initialUbicacion});
@@ -31,8 +30,9 @@ class MapPickerScreen extends StatefulWidget {
 class _MapPickerScreenState extends State<MapPickerScreen> {
   GoogleMapController? _mapController;
   LatLng? _selectedLatLng;
+  LatLng? _userLocation;
+  bool _isLoadingLocation = true;
 
-  // Bounds para CameraTargetBounds y validación de toques
   static final _bounds = LatLngBounds(
     southwest: _cantillanaSW,
     northeast: _cantillanaNE,
@@ -41,23 +41,59 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   @override
   void initState() {
     super.initState();
+
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
     if (widget.initialUbicacion != null) {
       _selectedLatLng = LatLng(
         widget.initialUbicacion!.latitud,
         widget.initialUbicacion!.longitud,
       );
     }
+    _obtenerUbicacionActual();
   }
 
   @override
   void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _mapController?.dispose();
     super.dispose();
   }
 
-  // ── Lógica ────────────────────────────────────────────────────────────────
+  Future<void> _obtenerUbicacionActual() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        await Geolocator.requestPermission();
+      }
 
-  /// Valida que el punto tocado esté dentro del municipio.
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+
+      final ubicacion = LatLng(position.latitude, position.longitude);
+
+      if (_dentroDeCantillana(ubicacion)) {
+        if (mounted) {
+          setState(() {
+            _userLocation = ubicacion;
+            _isLoadingLocation = false;
+          });
+          _mapController?.animateCamera(
+            CameraUpdate.newLatLngZoom(ubicacion, _defaultZoom),
+          );
+        }
+      } else {
+        if (mounted) setState(() => _isLoadingLocation = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingLocation = false);
+    }
+  }
+
   bool _dentroDeCantillana(LatLng punto) =>
       punto.latitude >= _cantillanaSW.latitude &&
       punto.latitude <= _cantillanaNE.latitude &&
@@ -109,11 +145,17 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  void _centrarEnUbicacionActual() {
+    if (_userLocation != null) {
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(_userLocation!, _defaultZoom),
+      );
+    }
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  Set<Marker> _construirMarcadores() {
     final Set<Marker> markers = {};
+
     if (_selectedLatLng != null) {
       markers.add(
         Marker(
@@ -127,8 +169,37 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       );
     }
 
+    if (_userLocation != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('ubicacion_actual'),
+          position: _userLocation!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+          infoWindow: const InfoWindow(title: 'Tu ubicación actual'),
+        ),
+      );
+    }
+
+    return markers;
+  }
+
+  void _onMapCreated(GoogleMapController controller) {
+    _mapController = controller;
+    final target = _selectedLatLng ?? _cantillanaCenter;
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        controller.animateCamera(
+          CameraUpdate.newLatLngZoom(target, _defaultZoom),
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      // ── AppBar ─────────────────────────────────────────────────────────
       appBar: AppBar(
         title: const Text('Seleccionar ubicación'),
         leading: IconButton(
@@ -150,22 +221,16 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ),
         ],
       ),
-
       body: Stack(
         children: [
-          // ── Mapa ────────────────────────────────────────────────────────
           GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: _selectedLatLng ?? _cantillanaCenter,
+            initialCameraPosition: const CameraPosition(
+              target: _cantillanaCenter,
               zoom: _defaultZoom,
             ),
-            onMapCreated: (controller) {
-              _mapController = controller;
-              // Aplica estilo oscuro acorde al tema de la app
-              controller.setMapStyle(_darkMapStyle);
-            },
+            onMapCreated: _onMapCreated,
             onTap: _onMapTap,
-            markers: markers,
+            markers: _construirMarcadores(),
             minMaxZoomPreference: const MinMaxZoomPreference(_minZoom, 19.0),
             cameraTargetBounds: CameraTargetBounds(_bounds),
             myLocationEnabled: true,
@@ -175,7 +240,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             compassEnabled: false,
           ),
 
-          // ── Indicador de instrucción (top) ──────────────────────────────
+          // Instrucción (top)
           Positioned(
             top: 12,
             left: 16,
@@ -187,15 +252,15 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: CantillanaTheme.dorado, width: 1.5),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  const Icon(Icons.touch_app,
+                  Icon(Icons.touch_app,
                       color: CantillanaTheme.dorado, size: 18),
-                  const SizedBox(width: 8),
-                  const Expanded(
+                  SizedBox(width: 8),
+                  Expanded(
                     child: Text(
-                      'Toca el mapa para marcar la ubicación exacta de la incidencia.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12.5),
+                      'Toca el mapa para marcar la ubicación exacta de la incidencia.\n🔴 Rojo: Incidencia • 🟢 Verde: Tu ubicación',
+                      style: TextStyle(color: Colors.white70, fontSize: 11),
                     ),
                   ),
                 ],
@@ -203,7 +268,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ),
           ),
 
-          // ── Controles flotantes (derecha) ───────────────────────────────
+          // Controles flotantes (derecha)
           Positioned(
             right: 12,
             bottom: _selectedLatLng != null ? 120 : 24,
@@ -228,11 +293,18 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                   tooltip: 'Centrar en Cantillana',
                   onTap: _centrarEnCantillana,
                 ),
+                const SizedBox(height: 8),
+                if (_userLocation != null)
+                  _MapFab(
+                    icon: Icons.my_location,
+                    tooltip: 'Mi ubicación',
+                    onTap: _centrarEnUbicacionActual,
+                  ),
               ],
             ),
           ),
 
-          // ── Panel inferior con coordenadas ──────────────────────────────
+          // Panel inferior con coordenadas
           if (_selectedLatLng != null)
             Positioned(
               bottom: 0,
@@ -321,9 +393,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   }
 }
 
-// ─────────────────────────────────────────
-// Botón flotante del mapa
-// ─────────────────────────────────────────
 class _MapFab extends StatelessWidget {
   final IconData icon;
   final String tooltip;
@@ -348,7 +417,7 @@ class _MapFab extends StatelessWidget {
             color: CantillanaTheme.verdeOscuro,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: CantillanaTheme.dorado, width: 1.5),
-            boxShadow: [
+            boxShadow: const [
               BoxShadow(
                   color: Colors.black38, blurRadius: 4, offset: Offset(0, 2))
             ],
@@ -359,31 +428,3 @@ class _MapFab extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────
-// Estilo oscuro para el mapa (acorde al tema)
-// ─────────────────────────────────────────
-const String _darkMapStyle = '''
-[
-  {"elementType":"geometry","stylers":[{"color":"#1d2c1d"}]},
-  {"elementType":"labels.text.fill","stylers":[{"color":"#8ec38e"}]},
-  {"elementType":"labels.text.stroke","stylers":[{"color":"#1a3320"}]},
-  {"featureType":"administrative","elementType":"geometry.stroke","stylers":[{"color":"#2e5e2e"}]},
-  {"featureType":"administrative.land_parcel","elementType":"labels.text.fill","stylers":[{"color":"#64835e"}]},
-  {"featureType":"poi","elementType":"geometry","stylers":[{"color":"#233b23"}]},
-  {"featureType":"poi","elementType":"labels.text.fill","stylers":[{"color":"#8aa88a"}]},
-  {"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#1e3d1e"}]},
-  {"featureType":"poi.park","elementType":"labels.text.fill","stylers":[{"color":"#6b8f6b"}]},
-  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#2d4f2d"}]},
-  {"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#1f3a1f"}]},
-  {"featureType":"road","elementType":"labels.text.fill","stylers":[{"color":"#c8a44a"}]},
-  {"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#3d6b3d"}]},
-  {"featureType":"road.highway","elementType":"geometry.stroke","stylers":[{"color":"#2a4d2a"}]},
-  {"featureType":"road.highway","elementType":"labels.text.fill","stylers":[{"color":"#c8a44a"}]},
-  {"featureType":"transit","elementType":"geometry","stylers":[{"color":"#243d24"}]},
-  {"featureType":"transit.station","elementType":"labels.text.fill","stylers":[{"color":"#b8c8b8"}]},
-  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#0d2b0d"}]},
-  {"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#4e7e4e"}]},
-  {"featureType":"water","elementType":"labels.text.stroke","stylers":[{"color":"#17300a"}]}
-]
-''';
