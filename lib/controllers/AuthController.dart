@@ -3,65 +3,75 @@
 // ─────────────────────────────────────────
 
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cantillana_incidencias/models/userModel.dart';
+import 'package:cantillana_incidencias/services/supabase_service.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
 class AuthController extends GetxController {
-  // ── Estado ─────────────────────────────
+  final _sb = SupabaseService.client;
+
   final status = AuthStatus.initial.obs;
   final currentUser = Rxn<UserModel>();
   final errorMessage = ''.obs;
 
-  // ── Getters helpers ────────────────────
   bool get isAuthenticated => status.value == AuthStatus.authenticated;
   bool get isLoading => status.value == AuthStatus.loading;
   UserModel? get user => currentUser.value;
+  String get userId => currentUser.value?.id ?? '';
 
-  /// Devuelve 0 si no hay sesión activa
-  int get userId => currentUser.value?.id ?? 0;
-
-  // ── Ciclo de vida ──────────────────────
   @override
   void onInit() {
     super.onInit();
     _checkSession();
+    _sb.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedOut) {
+        currentUser(null);
+        status(AuthStatus.unauthenticated);
+      }
+    });
   }
 
   Future<void> _checkSession() async {
     status(AuthStatus.loading);
-    // En producción: leer token de SharedPreferences / FlutterSecureStorage
-    await Future.delayed(const Duration(milliseconds: 800));
-    status(AuthStatus.unauthenticated);
+    final session = _sb.auth.currentSession;
+    if (session != null) {
+      await _loadProfile(session.user.id, session.user.email);
+    } else {
+      status(AuthStatus.unauthenticated);
+    }
   }
 
-  // ── Login ──────────────────────────────
-  /// [credencial] puede ser email o teléfono según lo que ingrese el usuario
+  // ── Login ──────────────────────────────────────────────────────────────
   Future<bool> login(String credencial, String contrasena) async {
     try {
       status(AuthStatus.loading);
       errorMessage('');
 
-      // Simula llamada a API (SELECT * FROM usuarios WHERE email=$1 OR telefono=$1)
-      await Future.delayed(const Duration(seconds: 1));
-
-      if (contrasena.length < 6) {
-        throw Exception('Contraseña incorrecta');
+      String email = credencial.trim();
+      if (!credencial.contains('@')) {
+        final row = await _sb
+            .from('usuarios')
+            .select('id')
+            .eq('telefono', credencial.trim())
+            .maybeSingle();
+        if (row == null) throw Exception('Teléfono no registrado');
+        final authUser = await _sb.auth.admin.getUserById(row['id'] as String);
+        email = authUser.user?.email ?? '';
+        if (email.isEmpty) throw Exception('No se pudo obtener el email');
       }
 
-      final esEmail = credencial.contains('@');
-
-      final user = UserModel(
-        id: credencial.hashCode.abs() % 100000,
-        nombre: _nombreDesdeCredencial(credencial),
-        email: esEmail ? credencial.trim() : null,
-        telefono: esEmail ? null : credencial.trim(),
-        fechaRegistro: DateTime(2024, 1, 15),
+      final res = await _sb.auth.signInWithPassword(
+        email: email,
+        password: contrasena,
       );
-
-      currentUser(user);
-      status(AuthStatus.authenticated);
+      await _loadProfile(res.user!.id, res.user!.email);
       return true;
+    } on AuthException catch (e) {
+      errorMessage(_mapAuthError(e.message));
+      status(AuthStatus.error);
+      return false;
     } catch (e) {
       errorMessage(e.toString().replaceFirst('Exception: ', ''));
       status(AuthStatus.error);
@@ -69,7 +79,7 @@ class AuthController extends GetxController {
     }
   }
 
-  // ── Registro ───────────────────────────
+  // ── Registro ───────────────────────────────────────────────────────────
   Future<bool> register({
     required String nombre,
     required String contrasena,
@@ -80,30 +90,38 @@ class AuthController extends GetxController {
       status(AuthStatus.loading);
       errorMessage('');
 
-      // Simula INSERT INTO usuarios (nombre, email, telefono, contrasena)
-      await Future.delayed(const Duration(seconds: 1));
+      final emailT = email?.trim();
+      final telefonoT = telefono?.trim();
 
+      if ((emailT == null || emailT.isEmpty) &&
+          (telefonoT == null || telefonoT.isEmpty)) {
+        throw Exception('Introduce al menos un email o un teléfono');
+      }
       if (contrasena.length < 6) {
         throw Exception('La contraseña debe tener al menos 6 caracteres');
       }
-      final emailTrimmed = email?.trim();
-      final telefonoTrimmed = telefono?.trim();
-      if ((emailTrimmed == null || emailTrimmed.isEmpty) &&
-          (telefonoTrimmed == null || telefonoTrimmed.isEmpty)) {
-        throw Exception('Introduce al menos un email o un teléfono');
-      }
 
-      final user = UserModel(
-        id: DateTime.now().millisecondsSinceEpoch % 100000,
-        nombre: nombre.trim(),
-        email: emailTrimmed?.isNotEmpty == true ? emailTrimmed : null,
-        telefono: telefonoTrimmed?.isNotEmpty == true ? telefonoTrimmed : null,
-        fechaRegistro: DateTime.now(),
+      final authEmail = emailT?.isNotEmpty == true
+          ? emailT!
+          : '${telefonoT!.replaceAll(RegExp(r'\D'), '')}@cantillana.local';
+
+      final res = await _sb.auth.signUp(
+        email: authEmail,
+        password: contrasena,
+        data: {'nombre': nombre.trim()},
       );
 
-      currentUser(user);
-      status(AuthStatus.authenticated);
+      await _sb.from('usuarios').update({
+        'nombre': nombre.trim(),
+        if (telefonoT?.isNotEmpty == true) 'telefono': telefonoT,
+      }).eq('id', res.user!.id);
+
+      await _loadProfile(res.user!.id, res.user!.email);
       return true;
+    } on AuthException catch (e) {
+      errorMessage(_mapAuthError(e.message));
+      status(AuthStatus.error);
+      return false;
     } catch (e) {
       errorMessage(e.toString().replaceFirst('Exception: ', ''));
       status(AuthStatus.error);
@@ -111,35 +129,48 @@ class AuthController extends GetxController {
     }
   }
 
-  // ── Actualizar perfil ──────────────────
+  // ── Actualizar perfil ──────────────────────────────────────────────────
   Future<void> updateProfile({required String nombre, String? telefono}) async {
     if (currentUser.value == null) return;
     status(AuthStatus.loading);
+    await _sb.from('usuarios').update({
+      'nombre': nombre.trim(),
+      'telefono': telefono?.trim().isNotEmpty == true ? telefono!.trim() : null,
+    }).eq('id', currentUser.value!.id);
 
-    // Simula UPDATE usuarios SET nombre=$1, telefono=$2 WHERE id=$3
-    await Future.delayed(const Duration(milliseconds: 600));
-    currentUser(
-      currentUser.value!.copyWith(
-        nombre: nombre.trim(),
-        telefono: telefono?.trim().isNotEmpty == true ? telefono!.trim() : null,
-      ),
-    );
+    currentUser(currentUser.value!.copyWith(
+      nombre: nombre.trim(),
+      telefono: telefono?.trim().isNotEmpty == true ? telefono!.trim() : null,
+    ));
     status(AuthStatus.authenticated);
   }
 
-  // ── Logout ─────────────────────────────
+  // ── Logout ─────────────────────────────────────────────────────────────
   Future<void> logout() async {
+    await _sb.auth.signOut();
     currentUser(null);
     status(AuthStatus.unauthenticated);
   }
 
-  // ── Helpers ────────────────────────────
-  String _nombreDesdeCredencial(String credencial) {
-    if (!credencial.contains('@')) return credencial;
-    final local = credencial.split('@').first;
-    return local
-        .split('.')
-        .map((p) => p.isEmpty ? p : p[0].toUpperCase() + p.substring(1))
-        .join(' ');
+  // ── Helpers ────────────────────────────────────────────────────────────
+  Future<void> _loadProfile(String uid, String? email) async {
+    final row = await _sb.from('usuarios').select().eq('id', uid).single();
+    currentUser(UserModel(
+      id: uid,
+      nombre: row['nombre'] as String,
+      email: email,
+      telefono: row['telefono'] as String?,
+      fechaRegistro: DateTime.parse(row['fecha_registro'] as String),
+    ));
+    status(AuthStatus.authenticated);
+  }
+
+  String _mapAuthError(String msg) {
+    if (msg.contains('Invalid login')) return 'Email o contraseña incorrectos';
+    if (msg.contains('already registered'))
+      return 'El email ya está registrado';
+    if (msg.contains('Password should'))
+      return 'La contraseña debe tener al menos 6 caracteres';
+    return msg;
   }
 }

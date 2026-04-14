@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 import 'package:cantillana_incidencias/config/router.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
+import 'package:cantillana_incidencias/services/supabase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,10 +36,13 @@ void main() async {
     ),
   );
 
+  // Inicializa Supabase
+  await SupabaseService.init();
+
   // Registro del AuthController de forma permanente
-  // (IncidentController se registra en CitizenHomeScreen via Get.put)
   Get.put(AuthController(), permanent: true);
 
+  // Ejecuta la app
   runApp(const CantillanaApp());
 }
 
@@ -62,9 +66,7 @@ class CantillanaApp extends StatelessWidget {
       // ── Router (GoRouter + GetX) ───────────
       routerConfig: router,
 
-      // ── Localización ──────────────────────
-      // Asegúrate de tener `intl` y el delegate de localización si usas
-      // DateFormat con locale 'es'. En caso contrario quita este bloque.
+      // ── Localización (opcional) ───────────
       // localizationsDelegates: const [
       //   GlobalMaterialLocalizations.delegate,
       //   GlobalWidgetsLocalizations.delegate,

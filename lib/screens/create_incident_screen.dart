@@ -131,28 +131,26 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     }
 
     setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(milliseconds: 700));
 
-    final userId = _auth.userId != 0 ? _auth.userId : 1;
-    final newIncident = IncidentModel(
-      id: DateTime.now().millisecondsSinceEpoch % 1000000,
-      usuarioId: userId,
-      categoriaId: _selectedCategoria!.id,
-      titulo: _tituloCtrl.text.trim(),
-      descripcion: _descripcionCtrl.text.trim(),
-      fechaCreacion: DateTime.now(),
-      estado: IncidentEstado.pendiente,
-      imagenes: _selectedImages,
-      ubicacion: _ubicacion,
-      categoriaNombre: _selectedCategoria!.nombre,
-      usuarioNombre: _auth.user?.nombre ?? 'Desconocido',
-    );
+    try {
+      final incident = await _ctrl.createIncident(
+        categoriaId: _selectedCategoria!.id,
+        titulo: _tituloCtrl.text.trim(),
+        descripcion: _descripcionCtrl.text.trim(),
+        latitud: _ubicacion?.latitud,
+        longitud: _ubicacion?.longitud,
+        descripcionDireccion: _ubicacion?.descripcionDireccion,
+      );
 
-    _ctrl.addIncident(newIncident);
-    _ctrl.clearPendingImages();
+      if (incident == null) {
+        _showError('No se pudo crear la incidencia.');
+        return;
+      }
 
-    if (mounted) {
+      if (!mounted) return;
+
       setState(() => _isSubmitting = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
@@ -164,11 +162,19 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
           ),
           backgroundColor: const Color(0xFF1B5E20),
           behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
-      context.go('/incident/${newIncident.id}');
+
+      context.go('/incident/${incident.id}');
+    } catch (e) {
+      _showError('Error al crear la incidencia: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 

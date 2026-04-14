@@ -1,12 +1,11 @@
 // ─────────────────────────────────────────
 // lib/models/ubicacionModel.dart
-// Coordenadas geográficas de una incidencia
 // ─────────────────────────────────────────
 
 class UbicacionModel {
   final double latitud;
   final double longitud;
-  final String? descripcionDireccion; // Dirección legible opcional
+  final String? descripcionDireccion;
 
   const UbicacionModel({
     required this.latitud,
@@ -37,11 +36,9 @@ class UbicacionModel {
         descripcionDireccion: descripcionDireccion ?? this.descripcionDireccion,
       );
 
-  /// Coordenadas formateadas para mostrar al usuario
   String get coordenadasLabel =>
       '${latitud.toStringAsFixed(5)}, ${longitud.toStringAsFixed(5)}';
 
-  /// URL para abrir en Google Maps app o web
   String get googleMapsUrl =>
       'https://www.google.com/maps/search/?api=1&query=$latitud,$longitud';
 

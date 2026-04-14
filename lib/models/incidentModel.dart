@@ -1,26 +1,24 @@
 // ─────────────────────────────────────────
 // lib/models/incidentModel.dart
-// Mapeado a la tabla `incidencias`
 // ─────────────────────────────────────────
 
 import 'package:cantillana_incidencias/models/comentarioModel.dart';
 import 'package:cantillana_incidencias/models/ubicacionModel.dart';
 
-/// Valores posibles del campo `estado` en la BD
 enum IncidentEstado { pendiente, en_proceso, resuelta, rechazada }
 
 class IncidentModel {
   final int id;
-  final int usuarioId; // FK → usuarios.id
-  final int categoriaId; // FK → categorias.id
+  final String usuarioId; // UUID de auth.users
+  final int categoriaId;
   final String titulo;
   final String descripcion;
   final DateTime fechaCreacion;
-  final IncidentEstado estado; // BD almacena como text
-  final List<String> imagenes; // Rutas de archivos o URLs de imágenes
-  final UbicacionModel? ubicacion; // Coordenadas GPS opcionales (nullable)
+  final IncidentEstado estado;
+  final List<String> imagenes; // URLs públicas del bucket Supabase
+  final UbicacionModel? ubicacion; // Columnas planas en la BD
 
-  // ── Campos enriquecidos (JOINs) – no están en la tabla incidencias ──────
+  // ── Campos enriquecidos (JOINs) ─────────────────────────────────────────
   final String? categoriaNombre;
   final String? usuarioNombre;
   final List<ComentarioModel> comentarios;
@@ -42,7 +40,7 @@ class IncidentModel {
 
   factory IncidentModel.fromJson(Map<String, dynamic> json) => IncidentModel(
         id: json['id'] as int,
-        usuarioId: json['usuario_id'] as int,
+        usuarioId: json['usuario_id'] as String,
         categoriaId: json['categoria_id'] as int,
         titulo: json['titulo'] as String,
         descripcion: json['descripcion'] as String,
@@ -54,8 +52,12 @@ class IncidentModel {
         imagenes: (json['imagenes'] as List<dynamic>? ?? [])
             .map((e) => e as String)
             .toList(),
-        ubicacion: json['ubicacion'] != null
-            ? UbicacionModel.fromJson(json['ubicacion'] as Map<String, dynamic>)
+        ubicacion: (json['latitud'] != null && json['longitud'] != null)
+            ? UbicacionModel(
+                latitud: (json['latitud'] as num).toDouble(),
+                longitud: (json['longitud'] as num).toDouble(),
+                descripcionDireccion: json['descripcion_direccion'] as String?,
+              )
             : null,
         categoriaNombre: json['categoria_nombre'] as String?,
         usuarioNombre: json['usuario_nombre'] as String?,
@@ -64,7 +66,7 @@ class IncidentModel {
             .toList(),
       );
 
-  /// Solo incluye columnas de la tabla `incidencias`
+  /// Solo columnas de la tabla `incidencias`
   Map<String, dynamic> toJson() => {
         'id': id,
         'usuario_id': usuarioId,
@@ -74,7 +76,11 @@ class IncidentModel {
         'fecha_creacion': fechaCreacion.toIso8601String(),
         'estado': estado.name,
         'imagenes': imagenes,
-        'ubicacion': ubicacion?.toJson(),
+        if (ubicacion != null) ...{
+          'latitud': ubicacion!.latitud,
+          'longitud': ubicacion!.longitud,
+          'descripcion_direccion': ubicacion!.descripcionDireccion,
+        },
       };
 
   IncidentModel copyWith({
@@ -104,7 +110,7 @@ class IncidentModel {
         comentarios: comentarios ?? this.comentarios,
       );
 
-  // ── Helpers ─────────────────────────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────────────────
   String get estadoLabel => switch (estado) {
         IncidentEstado.pendiente => 'Pendiente',
         IncidentEstado.en_proceso => 'En Proceso',

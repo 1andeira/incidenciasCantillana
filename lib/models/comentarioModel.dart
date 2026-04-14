@@ -1,16 +1,13 @@
 // ─────────────────────────────────────────
 // lib/models/comentarioModel.dart
-// Mapeado a la tabla `comentarios`
 // ─────────────────────────────────────────
 
 class ComentarioModel {
   final int id;
-  final int incidenciaId; // FK → incidencias.id
-  final int usuarioId; // FK → usuarios.id
+  final int incidenciaId;
+  final String usuarioId; // UUID de auth.users
   final String comentario;
   final DateTime fechaCreacion;
-
-  /// Campo enriquecido (JOIN con usuarios) – no está en la tabla
   final String? usuarioNombre;
 
   const ComentarioModel({
@@ -26,17 +23,29 @@ class ComentarioModel {
       ComentarioModel(
         id: json['id'] as int,
         incidenciaId: json['incidencia_id'] as int,
-        usuarioId: json['usuario_id'] as int,
+        usuarioId: json['usuario_id'] as String,
         comentario: json['comentario'] as String,
         fechaCreacion: DateTime.parse(json['fecha_creacion'] as String),
-        usuarioNombre: json['usuario_nombre'] as String?,
+        usuarioNombre:
+            (json['usuarios'] as Map<String, dynamic>?)?['nombre'] as String? ??
+                json['usuario_nombre'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'incidencia_id': incidenciaId,
-    'usuario_id': usuarioId,
-    'comentario': comentario,
-    'fecha_creacion': fechaCreacion.toIso8601String(),
-  };
+        'id': id,
+        'incidencia_id': incidenciaId,
+        'usuario_id': usuarioId,
+        'comentario': comentario,
+        'fecha_creacion': fechaCreacion.toIso8601String(),
+      };
+
+  ComentarioModel copyWith({String? comentario, String? usuarioNombre}) =>
+      ComentarioModel(
+        id: id,
+        incidenciaId: incidenciaId,
+        usuarioId: usuarioId,
+        comentario: comentario ?? this.comentario,
+        fechaCreacion: fechaCreacion,
+        usuarioNombre: usuarioNombre ?? this.usuarioNombre,
+      );
 }

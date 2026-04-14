@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+    
+  supabase_flutter: ^2.5.0
 
   # Estado reactivo
   get: ^4.6.6

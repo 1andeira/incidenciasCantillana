@@ -1,6 +1,5 @@
 // ─────────────────────────────────────────
 // lib/models/categoriaModel.dart
-// Mapeado a la tabla `categorias`
 // ─────────────────────────────────────────
 
 class CategoriaModel {
