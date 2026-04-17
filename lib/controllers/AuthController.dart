@@ -50,22 +50,27 @@ class AuthController extends GetxController {
       errorMessage('');
 
       String email = credencial.trim();
+
+      // Si entra un teléfono (no tiene '@')
       if (!credencial.contains('@')) {
         final row = await _sb
             .from('usuarios')
-            .select('id')
+            // AHORA PEDIMOS EL EMAIL DIRECTAMENTE A LA TABLA (no usamos auth.admin)
+            .select('email')
             .eq('telefono', credencial.trim())
             .maybeSingle();
-        if (row == null) throw Exception('Teléfono no registrado');
-        final authUser = await _sb.auth.admin.getUserById(row['id'] as String);
-        email = authUser.user?.email ?? '';
-        if (email.isEmpty) throw Exception('No se pudo obtener el email');
+
+        if (row == null || row['email'] == null) {
+          throw Exception('Teléfono no registrado o sin email asociado');
+        }
+        email = row['email'] as String;
       }
 
       final res = await _sb.auth.signInWithPassword(
         email: email,
         password: contrasena,
       );
+
       await _loadProfile(res.user!.id, res.user!.email);
       return true;
     } on AuthException catch (e) {
@@ -80,6 +85,7 @@ class AuthController extends GetxController {
   }
 
   // ── Registro ───────────────────────────────────────────────────────────
+// ── Registro ───────────────────────────────────────────────────────────
   Future<bool> register({
     required String nombre,
     required String contrasena,
@@ -97,9 +103,6 @@ class AuthController extends GetxController {
           (telefonoT == null || telefonoT.isEmpty)) {
         throw Exception('Introduce al menos un email o un teléfono');
       }
-      if (contrasena.length < 6) {
-        throw Exception('La contraseña debe tener al menos 6 caracteres');
-      }
 
       final authEmail = emailT?.isNotEmpty == true
           ? emailT!
@@ -111,13 +114,19 @@ class AuthController extends GetxController {
         data: {'nombre': nombre.trim()},
       );
 
-      await _sb.from('usuarios').update({
+      if (res.user == null) throw Exception('No se pudo crear el usuario');
+
+      await _sb.from('usuarios').upsert({
+        'id': res.user!.id,
         'nombre': nombre.trim(),
+        'email': authEmail,
         if (telefonoT?.isNotEmpty == true) 'telefono': telefonoT,
-      }).eq('id', res.user!.id);
+      });
 
       await _loadProfile(res.user!.id, res.user!.email);
       return true;
+
+      // Estos son los bloques catch completos que faltaban
     } on AuthException catch (e) {
       errorMessage(_mapAuthError(e.message));
       status(AuthStatus.error);

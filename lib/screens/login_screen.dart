@@ -406,16 +406,6 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
 
-                              Center(
-                                child: Text(
-                                  'Demo: cualquier email + contraseña ≥ 6 chars',
-                                  style: TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-
                               // ── Botón invitado ──────────────────────────
                               const SizedBox(height: 18),
                               Center(
