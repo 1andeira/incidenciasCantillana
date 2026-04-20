@@ -3,7 +3,6 @@
 // Detalle completo de una incidencia
 // ─────────────────────────────────────────
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
@@ -61,7 +60,7 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
         IncidentEstado.rechazada => Icons.cancel_outlined,
       };
 
-  // ── Cambiar estado ────────────────────────────────────────────────────────
+  // ── Cambiar estado (solo admin) ───────────────────────────────────────────
   void _showChangeEstado(IncidentModel incident) {
     showModalBottomSheet(
       context: context,
@@ -110,11 +109,13 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                   ),
                   child: Icon(_iconEstado(e), color: color, size: 18),
                 ),
-                title: Text(incident.copyWith(estado: e).estadoLabel,
-                    style: TextStyle(
-                        color: isSelected ? color : Colors.white,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.normal)),
+                title: Text(
+                  incident.copyWith(estado: e).estadoLabel,
+                  style: TextStyle(
+                      color: isSelected ? color : Colors.white,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal),
+                ),
                 trailing:
                     isSelected ? Icon(Icons.check_circle, color: color) : null,
                 onTap: () async {
@@ -129,13 +130,62 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
     );
   }
 
+  // ── Eliminar incidencia (solo admin) ──────────────────────────────────────
+  void _confirmDelete(IncidentModel incident) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: CantillanaTheme.verdeOscuro,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: CantillanaTheme.rojo, width: 1.5),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded,
+                color: CantillanaTheme.rojo, size: 22),
+            SizedBox(width: 8),
+            Text('Eliminar incidencia',
+                style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
+        content: Text(
+          '¿Seguro que quieres eliminar "${incident.titulo}"?\n\nEsta acción no se puede deshacer.',
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child:
+                const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _ctrl.deleteIncident(incident.id);
+              if (mounted) context.go('/');
+            },
+            icon: const Icon(Icons.delete_forever, size: 16),
+            label: const Text('Eliminar'),
+            style: FilledButton.styleFrom(
+              backgroundColor: CantillanaTheme.rojo,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: CantillanaTheme.dorado),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Enviar comentario ─────────────────────────────────────────────────────
   Future<void> _sendComment(int incidenciaId) async {
     final text = _commentCtrl.text.trim();
     if (text.isEmpty) return;
     _commentCtrl.clear();
     await _ctrl.addComentario(incidenciaId, text);
-    // Hacer scroll al final
     await Future.delayed(const Duration(milliseconds: 150));
     if (_scrollCtrl.hasClients) {
       _scrollCtrl.animateTo(
@@ -170,6 +220,9 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
       final df = DateFormat('dd/MM/yyyy – HH:mm');
       final currentUserId = _auth.userId;
 
+      // Comprueba si el usuario actual es admin
+      final isAdmin = _auth.isAdmin;
+
       return Scaffold(
         appBar: AppBar(
           title: Text(
@@ -181,21 +234,36 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
             onPressed: () => context.go('/'),
           ),
           actions: [
-            // Botón de cambiar estado
-            Obx(() => _ctrl.isDetailLoading.value
-                ? const Padding(
-                    padding: EdgeInsets.all(14),
-                    child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white)),
-                  )
-                : IconButton(
-                    icon: const Icon(Icons.edit_note),
-                    tooltip: 'Cambiar estado',
-                    onPressed: () => _showChangeEstado(incident),
-                  )),
+            // ── Acciones exclusivas de admin ─────────────────────────────
+            if (isAdmin) ...[
+              Obx(() => _ctrl.isDetailLoading.value
+                  ? const Padding(
+                      padding: EdgeInsets.all(14),
+                      child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white)),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Botón cambiar estado
+                        IconButton(
+                          icon: const Icon(Icons.edit_note),
+                          tooltip: 'Cambiar estado',
+                          onPressed: () => _showChangeEstado(incident),
+                        ),
+                        // Botón eliminar
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: CantillanaTheme.rojo),
+                          tooltip: 'Eliminar incidencia',
+                          onPressed: () => _confirmDelete(incident),
+                        ),
+                      ],
+                    )),
+            ],
           ],
         ),
 
@@ -235,6 +303,33 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                             fontWeight: FontWeight.w600),
                       ),
                     ),
+                  // Badge de rol admin visible en la pantalla de detalle
+                  if (isAdmin) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: CantillanaTheme.rojo.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: CantillanaTheme.rojo.withOpacity(0.5)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.shield_outlined,
+                              size: 10, color: CantillanaTheme.rojo),
+                          SizedBox(width: 4),
+                          Text('Admin',
+                              style: TextStyle(
+                                  color: CantillanaTheme.rojo,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -305,6 +400,7 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                   const SizedBox(height: 24),
 
                   // ── Galería de imágenes ───────────────────────────────
+                  // Las imágenes son URLs públicas de Supabase → Image.network
                   if (incident.hasImages) ...[
                     const Text('Imágenes',
                         style: TextStyle(
@@ -319,40 +415,31 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                         scrollDirection: Axis.horizontal,
                         itemCount: incident.imagenes.length,
                         itemBuilder: (context, index) {
-                          final imagePath = incident.imagenes[index];
+                          final imageUrl = incident.imagenes[index];
                           return GestureDetector(
-                            onTap: () {
-                              // Mostrar imagen en fullscreen
-                              showDialog(
-                                context: context,
-                                builder: (_) => GestureDetector(
-                                  onTap: () => Navigator.pop(context),
-                                  child: Container(
-                                    color: Colors.black87,
-                                    child: InteractiveViewer(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          child: Image.file(
-                                            File(imagePath),
-                                            fit: BoxFit.contain,
-                                            errorBuilder: (_, __, ___) =>
-                                                Container(
-                                              color: Colors.white10,
-                                              child: const Icon(
-                                                  Icons.image_not_supported,
-                                                  color: Colors.white30),
-                                            ),
-                                          ),
+                            onTap: () => showDialog(
+                              context: context,
+                              builder: (_) => GestureDetector(
+                                onTap: () => Navigator.pop(context),
+                                child: Container(
+                                  color: Colors.black87,
+                                  child: InteractiveViewer(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          imageUrl,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (_, __, ___) =>
+                                              _networkImageError(),
                                         ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              );
-                            },
+                              ),
+                            ),
                             child: Container(
                               margin: const EdgeInsets.only(right: 8),
                               decoration: BoxDecoration(
@@ -364,26 +451,19 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                                 borderRadius: BorderRadius.circular(8),
                                 child: Stack(
                                   children: [
-                                    Image.file(
-                                      File(imagePath),
+                                    Image.network(
+                                      imageUrl,
                                       width: 120,
                                       height: 120,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        width: 120,
-                                        height: 120,
-                                        color: Colors.white10,
-                                        child: const Icon(
-                                            Icons.image_not_supported,
-                                            color: Colors.white30),
-                                      ),
+                                      errorBuilder: (_, __, ___) =>
+                                          _networkImageError(
+                                              width: 120, height: 120),
                                     ),
                                     Container(
                                       width: 120,
                                       height: 120,
-                                      decoration: BoxDecoration(
-                                        color: Colors.black26,
-                                      ),
+                                      color: Colors.black26,
                                       child: const Icon(Icons.zoom_in,
                                           color: Colors.white54, size: 24),
                                     ),
@@ -441,7 +521,8 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                     ...incident.comentarios.map((c) => _CommentBubble(
                           comment: c,
                           isOwn: c.usuarioId == currentUserId,
-                          onDelete: currentUserId == c.usuarioId
+                          // Puede borrar: el propio autor O el admin
+                          onDelete: (c.usuarioId == currentUserId || isAdmin)
                               ? () => _ctrl.deleteComentario(incident.id, c.id)
                               : null,
                         )),
@@ -530,6 +611,14 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
       );
     });
   }
+
+  Widget _networkImageError({double width = 24, double height = 24}) =>
+      Container(
+        width: width,
+        height: height,
+        color: Colors.white10,
+        child: const Icon(Icons.image_not_supported, color: Colors.white30),
+      );
 }
 
 // ─────────────────────────────────────────
@@ -593,13 +682,17 @@ class _CommentBubble extends StatelessWidget {
                   onTap: () => showDialog(
                     context: context,
                     builder: (_) => AlertDialog(
-                      title: const Text('Eliminar comentario'),
+                      backgroundColor: CantillanaTheme.verdeOscuro,
+                      title: const Text('Eliminar comentario',
+                          style: TextStyle(color: Colors.white)),
                       content: const Text(
-                          '¿Seguro que quieres eliminar este comentario?'),
+                          '¿Seguro que quieres eliminar este comentario?',
+                          style: TextStyle(color: Colors.white70)),
                       actions: [
                         TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancelar')),
+                            child: const Text('Cancelar',
+                                style: TextStyle(color: Colors.white54))),
                         TextButton(
                           onPressed: () {
                             Navigator.pop(context);

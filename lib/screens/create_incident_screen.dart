@@ -3,18 +3,25 @@
 // Formulario de nueva incidencia
 // ─────────────────────────────────────────
 
-import 'dart:io';
+import 'dart:io' show File; // solo se usa en runtime móvil, con guardia kIsWeb
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
 import 'package:cantillana_incidencias/controllers/IncidentController.dart';
 import 'package:cantillana_incidencias/models/categoriaModel.dart';
-import 'package:cantillana_incidencias/models/incidentModel.dart';
 import 'package:cantillana_incidencias/models/ubicacionModel.dart';
+
+// Las importaciones de mapas y geolocalización solo se usan en móvil,
+// pero la compilación web las tolera siempre que no se instancien sus widgets
+// en la rama kIsWeb. Si prefieres condicionales totales, muévelos a un
+// helper con import condicionado.
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:cantillana_incidencias/screens/map_picker_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -37,7 +44,9 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
   CategoriaModel? _selectedCategoria;
   UbicacionModel? _ubicacion;
   bool _isSubmitting = false;
-  List<String> _selectedImages = [];
+
+  // Copia local de los XFile pendientes para reflejar cambios en la UI
+  List<XFile> _selectedImages = [];
 
   late final AnimationController _animCtrl;
   late final Animation<double> _fadeAnim;
@@ -67,7 +76,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     super.dispose();
   }
 
-  // ── Selector de ubicación ─────────────────────────────────────────────────
+  // ── Selector de ubicación (solo móvil) ────────────────────────────────────
 
   Future<void> _abrirMapPicker() async {
     final result = await Navigator.of(context).push<UbicacionModel?>(
@@ -87,15 +96,12 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
         return;
       }
 
-      // permission_handler dispara el diálogo nativo en MIUI correctamente
       final status = await Permission.locationWhenInUse.request();
-
       if (status.isDenied || status.isPermanentlyDenied) return;
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
       const sw = LatLng(37.570, -5.870);
@@ -148,7 +154,6 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
       }
 
       if (!mounted) return;
-
       setState(() => _isSubmitting = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -162,9 +167,8 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
           ),
           backgroundColor: const Color(0xFF1B5E20),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
 
@@ -172,9 +176,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     } catch (e) {
       _showError('Error al crear la incidencia: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -186,12 +188,10 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
             const Icon(Icons.error_outline, color: Colors.white, size: 16),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                msg,
-                style: const TextStyle(fontSize: 13),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(msg,
+                  style: const TextStyle(fontSize: 13),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis),
             ),
           ],
         ),
@@ -276,7 +276,9 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                   const SizedBox(height: 24),
 
                   // ── Ubicación (solo en móvil) ─────────────────────────
-                  if (Platform.isAndroid || Platform.isIOS) ...[
+                  // Platform.isAndroid/isIOS lanza UnsupportedError en web.
+                  // Usamos kIsWeb que es seguro en todas las plataformas.
+                  if (!kIsWeb) ...[
                     _SectionLabel(text: 'Ubicación en Cantillana (opcional)'),
                     const SizedBox(height: 8),
                     _buildUbicacionWidget(),
@@ -352,7 +354,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     );
   }
 
-  // ── Widget de ubicación ─────────────────────────────────────────────────
+  // ── Widget de ubicación (solo se renderiza en móvil) ─────────────────────
 
   Widget _buildUbicacionWidget() {
     if (_ubicacion == null) {
@@ -374,14 +376,11 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                   Icon(Icons.add_location_alt_outlined,
                       color: CantillanaTheme.dorado, size: 22),
                   SizedBox(width: 10),
-                  Text(
-                    'Marcar en el mapa',
-                    style: TextStyle(
-                      color: CantillanaTheme.dorado,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  Text('Marcar en el mapa',
+                      style: TextStyle(
+                          color: CantillanaTheme.dorado,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -402,14 +401,8 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                 children: [
                   Icon(Icons.my_location, color: Colors.white70, size: 20),
                   SizedBox(width: 10),
-                  Text(
-                    'Usar ubicación actual',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  Text('Usar ubicación actual',
+                      style: TextStyle(color: Colors.white70, fontSize: 14)),
                 ],
               ),
             ),
@@ -418,7 +411,6 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
       );
     }
 
-    // Miniatura del mapa con ubicación seleccionada
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
@@ -471,13 +463,11 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                   onPressed: _abrirMapPicker,
                   icon: const Icon(Icons.edit_location_alt,
                       size: 15, color: CantillanaTheme.dorado),
-                  label: const Text(
-                    'Cambiar',
-                    style: TextStyle(
-                        color: CantillanaTheme.dorado,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600),
-                  ),
+                  label: const Text('Cambiar',
+                      style: TextStyle(
+                          color: CantillanaTheme.dorado,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
                   style: TextButton.styleFrom(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -692,23 +682,26 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
           ),
         ),
         const SizedBox(width: 12),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () async {
-              await _ctrl.pickImageFromCamera();
-              setState(() => _selectedImages = List.from(_ctrl.pendingImages));
-            },
-            icon: const Icon(Icons.camera_alt_outlined, size: 18),
-            label: const Text('Cámara'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: CantillanaTheme.dorado,
-              side: const BorderSide(color: CantillanaTheme.dorado, width: 2),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+        // Cámara solo en móvil (no disponible en web)
+        if (!kIsWeb)
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                await _ctrl.pickImageFromCamera();
+                setState(
+                    () => _selectedImages = List.from(_ctrl.pendingImages));
+              },
+              icon: const Icon(Icons.camera_alt_outlined, size: 18),
+              label: const Text('Cámara'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: CantillanaTheme.dorado,
+                side: const BorderSide(color: CantillanaTheme.dorado, width: 2),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -740,7 +733,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
               scrollDirection: Axis.horizontal,
               itemCount: _selectedImages.length,
               itemBuilder: (context, index) {
-                final imagePath = _selectedImages[index];
+                final xfile = _selectedImages[index];
                 return Stack(
                   children: [
                     Container(
@@ -751,19 +744,25 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          File(imagePath),
-                          width: 100,
-                          height: 100,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 100,
-                            height: 100,
-                            color: Colors.white10,
-                            child: const Icon(Icons.image_not_supported,
-                                color: Colors.white30),
-                          ),
-                        ),
+                        // En web el path es una blob URL → Image.network
+                        // En móvil es una ruta de archivo → Image.file
+                        child: kIsWeb
+                            ? Image.network(
+                                xfile.path,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    _imagePlaceholder(),
+                              )
+                            : Image.file(
+                                File(xfile.path),
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    _imagePlaceholder(),
+                              ),
                       ),
                     ),
                     Positioned(
@@ -773,7 +772,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                         onTap: () {
                           setState(() {
                             _selectedImages.removeAt(index);
-                            _ctrl.removeImage(imagePath);
+                            _ctrl.removeImage(xfile.path);
                           });
                         },
                         child: Container(
@@ -796,6 +795,13 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
       ),
     );
   }
+
+  Widget _imagePlaceholder() => Container(
+        width: 100,
+        height: 100,
+        color: Colors.white10,
+        child: const Icon(Icons.image_not_supported, color: Colors.white30),
+      );
 }
 
 // ─────────────────────────────────────────

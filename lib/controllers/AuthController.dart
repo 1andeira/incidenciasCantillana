@@ -21,6 +21,9 @@ class AuthController extends GetxController {
   UserModel? get user => currentUser.value;
   String get userId => currentUser.value?.id ?? '';
 
+  /// Comodidad para chequear rol en cualquier widget
+  bool get isAdmin => currentUser.value?.isAdmin ?? false;
+
   @override
   void onInit() {
     super.onInit();
@@ -51,11 +54,9 @@ class AuthController extends GetxController {
 
       String email = credencial.trim();
 
-      // Si entra un teléfono (no tiene '@')
       if (!credencial.contains('@')) {
         final row = await _sb
             .from('usuarios')
-            // AHORA PEDIMOS EL EMAIL DIRECTAMENTE A LA TABLA (no usamos auth.admin)
             .select('email')
             .eq('telefono', credencial.trim())
             .maybeSingle();
@@ -85,7 +86,6 @@ class AuthController extends GetxController {
   }
 
   // ── Registro ───────────────────────────────────────────────────────────
-// ── Registro ───────────────────────────────────────────────────────────
   Future<bool> register({
     required String nombre,
     required String contrasena,
@@ -116,6 +116,7 @@ class AuthController extends GetxController {
 
       if (res.user == null) throw Exception('No se pudo crear el usuario');
 
+      // El rol se asigna en BD con valor por defecto 'usuario'
       await _sb.from('usuarios').upsert({
         'id': res.user!.id,
         'nombre': nombre.trim(),
@@ -125,8 +126,6 @@ class AuthController extends GetxController {
 
       await _loadProfile(res.user!.id, res.user!.email);
       return true;
-
-      // Estos son los bloques catch completos que faltaban
     } on AuthException catch (e) {
       errorMessage(_mapAuthError(e.message));
       status(AuthStatus.error);
@@ -170,6 +169,8 @@ class AuthController extends GetxController {
       email: email,
       telefono: row['telefono'] as String?,
       fechaRegistro: DateTime.parse(row['fecha_registro'] as String),
+      // Lee el campo rol; si la columna aún no existe devuelve null → usuario
+      rol: UserModel.parseRol(row['rol'] as String?),
     ));
     status(AuthStatus.authenticated);
   }

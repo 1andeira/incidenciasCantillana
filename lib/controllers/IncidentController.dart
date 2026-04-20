@@ -2,7 +2,9 @@
 // lib/controllers/IncidentController.dart
 // ─────────────────────────────────────────
 
-import 'dart:io';
+import 'dart:io' show File;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
@@ -30,8 +32,9 @@ class IncidentController extends GetxController {
   var isDetailLoading = false.obs;
 
   // ── Imágenes pendientes ──────────────────────────────────────────────────
+  // Se almacenan como XFile para que funcione en web y móvil
   final _imagePicker = ImagePicker();
-  final pendingImages = <String>[].obs;
+  final pendingImages = <XFile>[].obs;
 
   // ── Filtros ──────────────────────────────────────────────────────────────
   var searchQuery = ''.obs;
@@ -247,7 +250,9 @@ class IncidentController extends GetxController {
       final files = await _imagePicker.pickMultiImage(
           imageQuality: 85, maxWidth: 1024, maxHeight: 1024);
       for (final f in files) {
-        if (!pendingImages.contains(f.path)) pendingImages.add(f.path);
+        if (!pendingImages.any((p) => p.path == f.path)) {
+          pendingImages.add(f);
+        }
       }
     } catch (_) {}
   }
@@ -259,25 +264,43 @@ class IncidentController extends GetxController {
           imageQuality: 85,
           maxWidth: 1024,
           maxHeight: 1024);
-      if (f != null && !pendingImages.contains(f.path))
-        pendingImages.add(f.path);
+      if (f != null && !pendingImages.any((p) => p.path == f.path)) {
+        pendingImages.add(f);
+      }
     } catch (_) {}
   }
 
-  void removeImage(String path) => pendingImages.removeWhere((p) => p == path);
+  void removeImage(String path) =>
+      pendingImages.removeWhere((p) => p.path == path);
+
   void clearPendingImages() => pendingImages.clear();
 
+  /// Sube las imágenes pendientes de forma compatible con web y móvil.
+  /// - Web: lee bytes del XFile y usa uploadBinary.
+  /// - Móvil: usa File del sistema de archivos.
   Future<List<String>> _uploadPendingImages() async {
     final urls = <String>[];
     final uid = authController.userId;
-    for (final path in pendingImages) {
-      final file = File(path);
-      final ext = path.split('.').last;
+
+    for (final xfile in pendingImages) {
+      final ext = xfile.name.contains('.')
+          ? xfile.name.split('.').last
+          : xfile.path.split('.').last;
       final fileName = '$uid/${DateTime.now().microsecondsSinceEpoch}.$ext';
-      await _sb.storage.from('incidencias').upload(fileName, file);
+
+      if (kIsWeb) {
+        final bytes = await xfile.readAsBytes();
+        await _sb.storage.from('incidencias').uploadBinary(fileName, bytes);
+      } else {
+        await _sb.storage
+            .from('incidencias')
+            .upload(fileName, File(xfile.path));
+      }
+
       final url = _sb.storage.from('incidencias').getPublicUrl(fileName);
       urls.add(url);
     }
+
     return urls;
   }
 
