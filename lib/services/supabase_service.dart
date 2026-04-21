@@ -7,8 +7,8 @@ class SupabaseService {
 
   static Future<void> init() async {
     await Supabase.initialize(
-      url: 'https://nxfnrkzzkegmbduktnph.supabase.co',
-      anonKey: 'sb_publishable_QluQm_Nt7tYi443GB0irIg_C4omQMl1',
+      url: const String.fromEnvironment('SUPABASE_URL'),
+      anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
     );
   }
 }

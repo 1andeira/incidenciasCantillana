@@ -1,0 +1,4 @@
+IMPORTANTE LEER!!
+
+
+PARA compilar: flutter run --dart-define-from-file=.env.json
