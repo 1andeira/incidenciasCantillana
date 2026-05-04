@@ -131,55 +131,52 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
-  Future<void> _deleteUser(String id) async {
-    try {
-      await _sb.from('usuarios').delete().eq('id', id);
-      setState(() => _users.removeWhere((u) => u['id'] == id));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle_outline,
-                    color: CantillanaTheme.dorado),
-                SizedBox(width: 8),
-                Text('Usuario eliminado correctamente'),
-              ],
-            ),
-            backgroundColor: const Color(0xFF1B5E20),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+ 
+ Future<void> _deleteUser(String id) async {
+  try {
+    await _sb.rpc('eliminar_usuario_completo', params: {'usuario_id': id});
+    setState(() => _users.removeWhere((u) => u['id'] == id));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: CantillanaTheme.dorado),
+              SizedBox(width: 8),
+              Text('Usuario eliminado correctamente'),
+            ],
           ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline,
-                    color: Colors.white, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Error al eliminar el usuario: $e',
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+          backgroundColor: const Color(0xFF1B5E20),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Error al eliminar el usuario: $e',
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
-            backgroundColor: CantillanaTheme.rojo,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+              ),
+            ],
           ),
-        );
-      }
+          backgroundColor: CantillanaTheme.rojo,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {

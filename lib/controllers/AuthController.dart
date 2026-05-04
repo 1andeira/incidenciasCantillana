@@ -7,7 +7,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cantillana_incidencias/models/userModel.dart';
 import 'package:cantillana_incidencias/services/supabase_service.dart';
 
-enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
+enum AuthStatus {
+  initial,
+  loading,
+  authenticated,
+  unauthenticated,
+  pendingVerification,
+  error,
+}
 
 class AuthController extends GetxController {
   final _sb = SupabaseService.client;
@@ -18,20 +25,53 @@ class AuthController extends GetxController {
 
   bool get isAuthenticated => status.value == AuthStatus.authenticated;
   bool get isLoading => status.value == AuthStatus.loading;
+  bool get isPendingVerification =>
+      status.value == AuthStatus.pendingVerification;
   UserModel? get user => currentUser.value;
   String get userId => currentUser.value?.id ?? '';
-
-  /// Comodidad para chequear rol en cualquier widget
   bool get isAdmin => currentUser.value?.isAdmin ?? false;
 
   @override
   void onInit() {
     super.onInit();
     _checkSession();
-    _sb.auth.onAuthStateChange.listen((data) {
-      if (data.event == AuthChangeEvent.signedOut) {
-        currentUser(null);
-        status(AuthStatus.unauthenticated);
+
+    _sb.auth.onAuthStateChange.listen((data) async {
+      switch (data.event) {
+        case AuthChangeEvent.signedIn:
+          if (data.session != null) {
+            await _loadProfile(
+              data.session!.user.id,
+              data.session!.user.email,
+            );
+          }
+          break;
+
+        case AuthChangeEvent.tokenRefreshed:
+          if (data.session != null && !isAuthenticated) {
+            await _loadProfile(
+              data.session!.user.id,
+              data.session!.user.email,
+            );
+          }
+          break;
+
+        case AuthChangeEvent.signedOut:
+          currentUser(null);
+          status(AuthStatus.unauthenticated);
+          break;
+
+        case AuthChangeEvent.userUpdated:
+          if (data.session != null) {
+            await _loadProfile(
+              data.session!.user.id,
+              data.session!.user.email,
+            );
+          }
+          break;
+
+        default:
+          break;
       }
     });
   }
@@ -109,20 +149,34 @@ class AuthController extends GetxController {
           ? emailT!
           : '${telefonoT!.replaceAll(RegExp(r'\D'), '')}@cantillana.local';
 
+      // El rol viaja en user_metadata → el trigger handle_new_user lo lee
+      // al confirmar el email y crea la fila en public.usuarios con rol correcto
       final res = await _sb.auth.signUp(
         email: authEmail,
         password: contrasena,
-        data: {'nombre': nombre.trim()},
+        emailRedirectTo: 'io.supabase.cantillanaincidencias://login-callback',
+        data: {
+          'nombre': nombre.trim(),
+          if (telefonoT?.isNotEmpty == true) 'telefono': telefonoT,
+          if (isAdmin) 'rol': 'admin',
+        },
       );
 
       if (res.user == null) throw Exception('No se pudo crear el usuario');
 
-      // El rol se asigna en BD con valor por defecto 'usuario'
-await _sb.from('usuarios').upsert({
+      // Confirmación de email requerida → esperamos al deep link
+      if (res.session == null) {
+        status(AuthStatus.pendingVerification);
+        errorMessage('');
+        return false;
+      }
+
+      // Confirmación desactivada → sesión inmediata, upsert directo
+      await _sb.from('usuarios').upsert({
         'id': res.user!.id,
         'nombre': nombre.trim(),
         if (telefonoT?.isNotEmpty == true) 'telefono': telefonoT,
-        if (isAdmin) 'rol': 'admin',
+        'rol': isAdmin ? 'admin' : 'usuario',
       });
 
       await _loadProfile(res.user!.id, res.user!.email);
@@ -154,6 +208,16 @@ await _sb.from('usuarios').upsert({
     status(AuthStatus.authenticated);
   }
 
+  // ── Cambiar rol (solo desde panel admin) ──────────────────────────────
+  Future<void> setRol(String uid, String rol) async {
+    await _sb.from('usuarios').update({'rol': rol}).eq('id', uid);
+    if (uid == userId) {
+      currentUser(currentUser.value!.copyWith(
+        rol: UserModel.parseRol(rol),
+      ));
+    }
+  }
+
   // ── Logout ─────────────────────────────────────────────────────────────
   Future<void> logout() async {
     await _sb.auth.signOut();
@@ -163,17 +227,22 @@ await _sb.from('usuarios').upsert({
 
   // ── Helpers ────────────────────────────────────────────────────────────
   Future<void> _loadProfile(String uid, String? email) async {
-    final row = await _sb.from('usuarios').select().eq('id', uid).single();
-    currentUser(UserModel(
-      id: uid,
-      nombre: row['nombre'] as String,
-      email: email,
-      telefono: row['telefono'] as String?,
-      fechaRegistro: DateTime.parse(row['fecha_registro'] as String),
-      // Lee el campo rol; si la columna aún no existe devuelve null → usuario
-      rol: UserModel.parseRol(row['rol'] as String?),
-    ));
-    status(AuthStatus.authenticated);
+    try {
+      final row = await _sb.from('usuarios').select().eq('id', uid).single();
+
+      currentUser(UserModel(
+        id: uid,
+        nombre: row['nombre'] as String,
+        email: email,
+        telefono: row['telefono'] as String?,
+        fechaRegistro: DateTime.parse(row['fecha_registro'] as String),
+        rol: UserModel.parseRol(row['rol'] as String?),
+      ));
+      status(AuthStatus.authenticated);
+    } catch (_) {
+      // Perfil aún no creado por el trigger → volvemos a unauthenticated
+      status(AuthStatus.unauthenticated);
+    }
   }
 
   String _mapAuthError(String msg) {
@@ -182,6 +251,8 @@ await _sb.from('usuarios').upsert({
       return 'El email ya está registrado';
     if (msg.contains('Password should'))
       return 'La contraseña debe tener al menos 6 caracteres';
+    if (msg.contains('Email not confirmed'))
+      return 'Confirma tu email antes de iniciar sesión';
     return msg;
   }
 }
