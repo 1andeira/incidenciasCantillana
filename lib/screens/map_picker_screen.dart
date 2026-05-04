@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 import 'package:cantillana_incidencias/models/ubicacionModel.dart';
 
@@ -233,7 +234,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             markers: _construirMarcadores(),
             minMaxZoomPreference: const MinMaxZoomPreference(_minZoom, 19.0),
             cameraTargetBounds: CameraTargetBounds(_bounds),
-            myLocationEnabled: true,
+            // myLocationEnabled no está soportado en google_maps_flutter_web
+            myLocationEnabled: kIsWeb ? false : true,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,

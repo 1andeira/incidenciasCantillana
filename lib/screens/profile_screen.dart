@@ -434,7 +434,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
 
-                const SizedBox(height: 32),
+const SizedBox(height: 32),
+
+                // ── Panel de administración (solo admin) ───────────────────
+                Obx(() {
+                  if (!_auth.isAdmin) return const SizedBox.shrink();
+                  return Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: FilledButton.icon(
+                          onPressed: () => context.go('/admin/users'),
+                          icon: const Icon(Icons.manage_accounts, size: 18),
+                          label: const Text('Gestionar usuarios'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF0E4023),
+                            foregroundColor: CantillanaTheme.dorado,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: const BorderSide(
+                                  color: CantillanaTheme.dorado, width: 1.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  );
+                }),
 
                 // ── Cerrar sesión ──────────────────────────────────────────
                 SizedBox(

@@ -5,9 +5,9 @@
 enum UserRol { admin, usuario }
 
 class UserModel {
-  final String id; // UUID de auth.users
+  final String id;
   final String nombre;
-  final String? email;
+  final String? email;   // viene de auth.users, NO de la tabla usuarios
   final String? telefono;
   final DateTime fechaRegistro;
   final UserRol rol;
@@ -24,9 +24,11 @@ class UserModel {
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
         id: json['id'] as String,
         nombre: json['nombre'] as String,
-        email: json['email'] as String?,
+        // email no es columna de la tabla usuarios → siempre null desde BD
+        email: null,
         telefono: json['telefono'] as String?,
         fechaRegistro: DateTime.parse(json['fecha_registro'] as String),
+        // rol puede no existir como columna todavía → null safe
         rol: parseRol(json['rol'] as String?),
       );
 
@@ -35,13 +37,12 @@ class UserModel {
     return UserRol.usuario;
   }
 
+  // Solo columnas que existen en la tabla usuarios
   Map<String, dynamic> toJson() => {
         'id': id,
         'nombre': nombre,
-        'email': email,
-        'telefono': telefono,
+        if (telefono != null) 'telefono': telefono,
         'fecha_registro': fechaRegistro.toIso8601String(),
-        'rol': rol.name,
       };
 
   UserModel copyWith({
@@ -59,7 +60,6 @@ class UserModel {
         rol: rol ?? this.rol,
       );
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
   bool get isAdmin => rol == UserRol.admin;
 
   String get initials {

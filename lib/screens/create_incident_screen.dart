@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────
 // lib/screens/create_incident_screen.dart
-// Formulario de nueva incidencia
+// Formulario de nueva incidencia — con soporte de ubicación en WEB y móvil
 // ─────────────────────────────────────────
 
-import 'dart:io' show File; // solo se usa en runtime móvil, con guardia kIsWeb
+import 'dart:io' show File;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -16,13 +16,12 @@ import 'package:cantillana_incidencias/controllers/IncidentController.dart';
 import 'package:cantillana_incidencias/models/categoriaModel.dart';
 import 'package:cantillana_incidencias/models/ubicacionModel.dart';
 
-// Las importaciones de mapas y geolocalización solo se usan en móvil,
-// pero la compilación web las tolera siempre que no se instancien sus widgets
-// en la rama kIsWeb. Si prefieres condicionales totales, muévelos a un
-// helper con import condicionado.
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cantillana_incidencias/screens/map_picker_screen.dart';
+
+// permission_handler solo existe en móvil — se importa condicionalmente
+// mediante una guardia kIsWeb en tiempo de ejecución.
 import 'package:permission_handler/permission_handler.dart';
 
 class CreateIncidentScreen extends StatefulWidget {
@@ -45,7 +44,6 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
   UbicacionModel? _ubicacion;
   bool _isSubmitting = false;
 
-  // Copia local de los XFile pendientes para reflejar cambios en la UI
   List<XFile> _selectedImages = [];
 
   late final AnimationController _animCtrl;
@@ -54,6 +52,10 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
 
   static const int _tituloMax = 80;
   static const int _descMax = 500;
+
+  // Límites del término municipal de Cantillana
+  static const LatLng _swBound = LatLng(37.570, -5.870);
+  static const LatLng _neBound = LatLng(37.660, -5.760);
 
   @override
   void initState() {
@@ -76,7 +78,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     super.dispose();
   }
 
-  // ── Selector de ubicación (solo móvil) ────────────────────────────────────
+  // ── Selector de ubicación ─────────────────────────────────────────────────
 
   Future<void> _abrirMapPicker() async {
     final result = await Navigator.of(context).push<UbicacionModel?>(
@@ -90,27 +92,34 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
 
   Future<void> _usarUbicacionActual() async {
     try {
+      // ── Verificar servicio GPS/geolocalización ──────────────────────────
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _showError('Activa el GPS del dispositivo.');
+        _showError(kIsWeb
+            ? 'Permite el acceso a la ubicación en tu navegador.'
+            : 'Activa el GPS del dispositivo.');
         return;
       }
 
-      final status = await Permission.locationWhenInUse.request();
-      if (status.isDenied || status.isPermanentlyDenied) return;
+      // ── Permisos: permission_handler solo en móvil ──────────────────────
+      // En web el navegador gestiona el permiso a través de Geolocator
+      // directamente (no existe permission_handler en web).
+      if (!kIsWeb) {
+        final status = await Permission.locationWhenInUse.request();
+        if (status.isDenied || status.isPermanentlyDenied) return;
+      }
 
+      // ── Obtener posición ────────────────────────────────────────────────
       final position = await Geolocator.getCurrentPosition(
         locationSettings:
             const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
-      const sw = LatLng(37.570, -5.870);
-      const ne = LatLng(37.660, -5.760);
-
-      if (position.latitude < sw.latitude ||
-          position.latitude > ne.latitude ||
-          position.longitude < sw.longitude ||
-          position.longitude > ne.longitude) {
+      // ── Validar que está dentro de Cantillana ───────────────────────────
+      if (position.latitude < _swBound.latitude ||
+          position.latitude > _neBound.latitude ||
+          position.longitude < _swBound.longitude ||
+          position.longitude > _neBound.longitude) {
         _showError(
             'Tu ubicación está fuera del término municipal de Cantillana.');
         return;
@@ -275,15 +284,11 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
 
                   const SizedBox(height: 24),
 
-                  // ── Ubicación (solo en móvil) ─────────────────────────
-                  // Platform.isAndroid/isIOS lanza UnsupportedError en web.
-                  // Usamos kIsWeb que es seguro en todas las plataformas.
-                  if (!kIsWeb) ...[
-                    _SectionLabel(text: 'Ubicación en Cantillana (opcional)'),
-                    const SizedBox(height: 8),
-                    _buildUbicacionWidget(),
-                    const SizedBox(height: 24),
-                  ],
+                  // ── Ubicación: disponible en web Y móvil ──────────────
+                  _SectionLabel(text: 'Ubicación en Cantillana (opcional)'),
+                  const SizedBox(height: 8),
+                  _buildUbicacionWidget(),
+                  const SizedBox(height: 24),
 
                   // ── Imágenes ───────────────────────────────────────────
                   _SectionLabel(text: 'Imágenes (opcional)'),
@@ -354,12 +359,13 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     );
   }
 
-  // ── Widget de ubicación (solo se renderiza en móvil) ─────────────────────
+  // ── Widget de ubicación (web + móvil) ─────────────────────────────────────
 
   Widget _buildUbicacionWidget() {
     if (_ubicacion == null) {
       return Column(
         children: [
+          // Botón "Marcar en el mapa"
           GestureDetector(
             onTap: _abrirMapPicker,
             child: Container(
@@ -386,6 +392,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
             ),
           ),
           const SizedBox(height: 10),
+          // Botón "Usar ubicación actual"
           GestureDetector(
             onTap: _usarUbicacionActual,
             child: Container(
@@ -396,13 +403,18 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.white24, width: 1.5),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.my_location, color: Colors.white70, size: 20),
-                  SizedBox(width: 10),
-                  Text('Usar ubicación actual',
-                      style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  const Icon(Icons.my_location,
+                      color: Colors.white70, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    kIsWeb
+                        ? 'Usar mi ubicación (navegador)'
+                        : 'Usar ubicación actual',
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
                 ],
               ),
             ),
@@ -411,6 +423,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
       );
     }
 
+    // ── Vista previa del mapa cuando hay ubicación seleccionada ────────────
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
@@ -441,7 +454,8 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
               zoomGesturesEnabled: false,
               rotateGesturesEnabled: false,
               tiltGesturesEnabled: false,
-              liteModeEnabled: true,
+              // liteModeEnabled solo existe en Android — no compatible con web
+              liteModeEnabled: kIsWeb ? false : true,
             ),
           ),
           Container(
@@ -489,7 +503,8 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     );
   }
 
-  // ── Campo título ────────────────────────────────────────────────────────
+  // ── Campo título ──────────────────────────────────────────────────────────
+
   Widget _buildTituloField() {
     return StatefulBuilder(
       builder: (_, setInner) => TextFormField(
@@ -542,7 +557,8 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     );
   }
 
-  // ── Grid categorías ─────────────────────────────────────────────────────
+  // ── Grid categorías ───────────────────────────────────────────────────────
+
   Widget _buildCategoriaGrid(List<CategoriaModel> categorias) {
     final icons = {
       'Alumbrado': Icons.lightbulb_outline,
@@ -607,7 +623,8 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     );
   }
 
-  // ── Campo descripción ────────────────────────────────────────────────────
+  // ── Campo descripción ─────────────────────────────────────────────────────
+
   Widget _buildDescripcionField() {
     return StatefulBuilder(
       builder: (_, setInner) => TextFormField(
@@ -660,7 +677,8 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     );
   }
 
-  // ── Botones de imagen ────────────────────────────────────────────────────
+  // ── Botones de imagen ─────────────────────────────────────────────────────
+
   Widget _buildImagePickerButtons() {
     return Row(
       children: [
@@ -682,7 +700,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
           ),
         ),
         const SizedBox(width: 12),
-        // Cámara solo en móvil (no disponible en web)
+        // Cámara solo en móvil
         if (!kIsWeb)
           Expanded(
             child: OutlinedButton.icon(
@@ -706,7 +724,8 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
     );
   }
 
-  // ── Preview de imágenes ──────────────────────────────────────────────────
+  // ── Preview de imágenes ───────────────────────────────────────────────────
+
   Widget _buildImagePreviewGallery() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -744,8 +763,6 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        // En web el path es una blob URL → Image.network
-                        // En móvil es una ruta de archivo → Image.file
                         child: kIsWeb
                             ? Image.network(
                                 xfile.path,

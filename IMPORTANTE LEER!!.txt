@@ -1,4 +1,29 @@
 IMPORTANTE LEER!!
 
+voy a actualizar todos los archivos del proyecto para reforzar la seguridad de la api key en los archivos de la web desplega,
+por lo que necesito ser notificado en el momento en el que la evaluéis para poder empezar con la reestructuracion del acceso a las apis,
+(empezar a aplicar los cambios que tengo pendientes al ejecutable, apk y version web desplegadas en plesk, son cambios de seguridad,
+el comportamiento de estos archivos ya es el esperado).
 
-PARA compilar: flutter run --dart-define-from-file=.env.json
+
+PARA compilar:
+
+    Pegar el .env.json adjuntado en la raiz del repositorio (cantillana_app/.env.json)
+    comando despliegue: flutter run --dart-define-from-file=.env.json
+    para crear administrador: registro -> campo email -> escribir: /admincantillana
+
+-- leer hasta aqui --
+
+Tener en cuenta en caso de migración:
+
+disponibilidad de archivo de credenciales (.env.json)
+configurar el nuevo dominio desde Google cloud console
+revisar rls de supabase (seguridad key)
+uso de un servidor apache para el correcto funcionamiento del archivo .htaccess o redefinir rutas en caso contrario
+
+-- TODO --
+
+implementar roles para gestionar las limitaciones administrativas de la aplicación
+
+
+comando compilar: flutter build web --base-href "/app/" (deprecado por implementacion de .env.json)

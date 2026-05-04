@@ -13,17 +13,19 @@ import 'package:cantillana_incidencias/screens/citizen_home_screen.dart';
 import 'package:cantillana_incidencias/screens/incident_detail_screen.dart';
 import 'package:cantillana_incidencias/screens/profile_screen.dart';
 import 'package:cantillana_incidencias/screens/create_incident_screen.dart';
+import 'package:cantillana_incidencias/screens/admin_users_screen.dart';
 
 /// Rutas que requieren sesión activa.
-/// El resto son públicas y accesibles en modo invitado.
 const _rutasPrivadas = {'/create-incident', '/profile'};
+
+/// Rutas que además requieren rol admin.
+const _rutasAdmin = {'/admin/users'};
 
 GoRouter buildRouter() {
   return GoRouter(
     initialLocation: '/',
     debugLogDiagnostics: false,
 
-    // ── Redirección global (auth guard) ──────────────────────────────────
     redirect: (BuildContext context, GoRouterState state) {
       AuthController auth;
       try {
@@ -37,36 +39,31 @@ GoRouter buildRouter() {
       final location = state.matchedLocation;
       final isOnLogin = location == '/login';
 
-      // Durante la carga inicial no redirigimos
       if (isLoading) return null;
 
-      // Si ya está autenticado e intenta ir a /login → manda a home
       if (isAuthenticated && isOnLogin) return '/';
 
-      // Solo protegemos las rutas privadas
       final esRutaPrivada = _rutasPrivadas.contains(location);
       if (esRutaPrivada && !isAuthenticated) return '/login';
+
+      // Rutas exclusivas de admin → redirige a home si no es admin
+      final esRutaAdmin = _rutasAdmin.contains(location);
+      if (esRutaAdmin && (!isAuthenticated || !auth.isAdmin)) return '/';
 
       return null;
     },
 
-    // ── Rutas ──────────────────────────────────────────────────────────────
     routes: [
-      // -- Autenticación (pública) -----------------------------------------
       GoRoute(
         path: '/login',
         name: 'login',
         builder: (context, state) => const LoginScreen(),
       ),
-
-      // -- Home (pública, accesible como invitado) -------------------------
       GoRoute(
         path: '/',
         name: 'home',
         builder: (context, state) => const CitizenHomeScreen(),
       ),
-
-      // -- Detalle de incidencia (público) ---------------------------------
       GoRoute(
         path: '/incident/:id',
         name: 'incident-detail',
@@ -75,23 +72,24 @@ GoRouter buildRouter() {
           return IncidentDetailScreen(incidentId: id);
         },
       ),
-
-      // -- Crear nueva incidencia (PRIVADA → requiere login) ---------------
       GoRoute(
         path: '/create-incident',
         name: 'create-incident',
         builder: (context, state) => const CreateIncidentScreen(),
       ),
-
-      // -- Perfil de usuario (PRIVADA → requiere login) --------------------
       GoRoute(
         path: '/profile',
         name: 'profile',
         builder: (context, state) => const ProfileScreen(),
       ),
+      // ── Gestión de usuarios (solo admin) ────────────────────────────
+      GoRoute(
+        path: '/admin/users',
+        name: 'admin-users',
+        builder: (context, state) => const AdminUsersScreen(),
+      ),
     ],
 
-    // ── Página de error 404 ───────────────────────────────────────────────
     errorBuilder: (context, state) => Scaffold(
       body: Center(
         child: Column(
@@ -99,16 +97,12 @@ GoRouter buildRouter() {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.white54),
             const SizedBox(height: 16),
-            const Text(
-              'Página no encontrada',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
+            const Text('Página no encontrada',
+                style: TextStyle(color: Colors.white, fontSize: 18)),
             const SizedBox(height: 8),
-            Text(
-              state.error?.toString() ?? '',
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-              textAlign: TextAlign.center,
-            ),
+            Text(state.error?.toString() ?? '',
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+                textAlign: TextAlign.center),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => context.go('/'),

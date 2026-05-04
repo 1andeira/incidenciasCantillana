@@ -3,6 +3,7 @@
 // Punto de entrada de Cantillana Incidencias
 // ─────────────────────────────────────────
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -11,6 +12,7 @@ import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 import 'package:cantillana_incidencias/config/router.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
 import 'package:cantillana_incidencias/services/supabase_service.dart';
+import 'package:cantillana_incidencias/utils/web_maps_loader.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +24,7 @@ void main() async {
     FlutterError.presentError(details);
   };
 
-  // Fuerza orientación vertical
+  // Fuerza orientación vertical (no aplica en web, es un no-op seguro)
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -36,8 +38,14 @@ void main() async {
     ),
   );
 
-  // Inicializa Supabase
+  // Inicializa Supabase (también carga env.json con la API key de Maps)
   await SupabaseService.init();
+
+  // Inyecta el script de Google Maps JS en web antes de arrancar la UI.
+  // En móvil/escritorio es un no-op (web_maps_loader_stub.dart).
+  if (kIsWeb) {
+    await injectGoogleMapsScript(SupabaseService.googleMapsApiKey);
+  }
 
   // Registro del AuthController de forma permanente
   Get.put(AuthController(), permanent: true);
@@ -65,14 +73,6 @@ class CantillanaApp extends StatelessWidget {
 
       // ── Router (GoRouter + GetX) ───────────
       routerConfig: router,
-
-      // ── Localización (opcional) ───────────
-      // localizationsDelegates: const [
-      //   GlobalMaterialLocalizations.delegate,
-      //   GlobalWidgetsLocalizations.delegate,
-      //   GlobalCupertinoLocalizations.delegate,
-      // ],
-      // supportedLocales: const [Locale('es', 'ES')],
     );
   }
 }

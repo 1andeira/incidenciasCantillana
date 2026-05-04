@@ -28,12 +28,14 @@ class _LoginScreenState extends State<LoginScreen>
 
   bool _isRegisterMode = false;
   bool _obscureContrasena = true;
+    bool _pendingAdmin = false; 
+
 
   late final AnimationController _animCtrl;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
 
-  @override
+@override
   void initState() {
     super.initState();
     _animCtrl = AnimationController(
@@ -45,11 +47,40 @@ class _LoginScreenState extends State<LoginScreen>
       begin: const Offset(0, 0.1),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
+
+    // Detecta el comando de admin oculto
+    _credencialCtrl.addListener(_checkAdminCommand);
   }
 
-  @override
+void _checkAdminCommand() {
+    if (_credencialCtrl.text.trim() == '/admincantillana') {
+      _credencialCtrl.clear();
+      setState(() => _pendingAdmin = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.shield_outlined, color: CantillanaTheme.dorado, size: 16),
+              SizedBox(width: 8),
+              Text('Modo administrador activado para el próximo registro.'),
+            ],
+          ),
+          backgroundColor: const Color(0xFF0E4023),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: CantillanaTheme.dorado, width: 1.5),
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+@override
   void dispose() {
     _animCtrl.dispose();
+    _credencialCtrl.removeListener(_checkAdminCommand);
     _nombreCtrl.dispose();
     _credencialCtrl.dispose();
     _telefonoCtrl.dispose();
@@ -68,13 +99,16 @@ class _LoginScreenState extends State<LoginScreen>
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     bool ok;
-    if (_isRegisterMode) {
+if (_isRegisterMode) {
       ok = await _authController.register(
         nombre: _nombreCtrl.text,
         contrasena: _contrasenaCtrl.text,
         email: _credencialCtrl.text.contains('@') ? _credencialCtrl.text : null,
         telefono: _telefonoCtrl.text.isNotEmpty ? _telefonoCtrl.text : null,
+        isAdmin: _pendingAdmin,
       );
+      // Consumir el flag tras usarlo, sea cual sea el resultado
+      setState(() => _pendingAdmin = false);
     } else {
       ok = await _authController.login(
         _credencialCtrl.text,

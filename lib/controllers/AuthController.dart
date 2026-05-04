@@ -91,6 +91,7 @@ class AuthController extends GetxController {
     required String contrasena,
     String? email,
     String? telefono,
+    bool isAdmin = false,
   }) async {
     try {
       status(AuthStatus.loading);
@@ -117,11 +118,11 @@ class AuthController extends GetxController {
       if (res.user == null) throw Exception('No se pudo crear el usuario');
 
       // El rol se asigna en BD con valor por defecto 'usuario'
-      await _sb.from('usuarios').upsert({
+await _sb.from('usuarios').upsert({
         'id': res.user!.id,
         'nombre': nombre.trim(),
-        'email': authEmail,
         if (telefonoT?.isNotEmpty == true) 'telefono': telefonoT,
+        if (isAdmin) 'rol': 'admin',
       });
 
       await _loadProfile(res.user!.id, res.user!.email);

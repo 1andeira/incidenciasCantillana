@@ -62,6 +62,54 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
     );
   }
 
+  void _showDeleteConfirm(BuildContext context, IncidentModel incident) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: CantillanaTheme.verdeOscuro,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: CantillanaTheme.rojo, width: 1.5),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded,
+                color: CantillanaTheme.rojo, size: 22),
+            SizedBox(width: 8),
+            Text('Eliminar incidencia',
+                style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
+        content: Text(
+          '¿Seguro que quieres eliminar "${incident.titulo}"?\n\nEsta acción no se puede deshacer.',
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar',
+                style: TextStyle(color: Colors.white54)),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _ctrl.deleteIncident(incident.id);
+            },
+            icon: const Icon(Icons.delete_forever, size: 16),
+            label: const Text('Eliminar'),
+            style: FilledButton.styleFrom(
+              backgroundColor: CantillanaTheme.rojo,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: CantillanaTheme.dorado),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -272,6 +320,9 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                     colorEstado: _colorEstado(list[i].estado),
                     iconEstado: _iconEstado(list[i].estado),
                     onTap: () => context.go('/incident/${list[i].id}'),
+                    onDelete: _auth.isAdmin
+                        ? () => _showDeleteConfirm(context, list[i])
+                        : null,
                   ),
                 ),
               );
@@ -360,12 +411,14 @@ class _IncidentCard extends StatelessWidget {
   final Color colorEstado;
   final IconData iconEstado;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   const _IncidentCard({
     required this.incident,
     required this.colorEstado,
     required this.iconEstado,
     required this.onTap,
+    this.onDelete,
   });
 
   Future<void> _abrirEnMaps(BuildContext context) async {
@@ -464,11 +517,10 @@ class _IncidentCard extends StatelessWidget {
                           const TextStyle(color: Colors.white38, fontSize: 11)),
                   const Spacer(),
 
-                  // ── Badge de ubicación: toca para abrir Maps ─────────
+                  // ── Badge de ubicación ────────────────────────────────
                   if (incident.hasUbicacion) ...[
                     GestureDetector(
                       onTap: () => _abrirEnMaps(context),
-                      // Evitar que el tap suba al InkWell del card
                       behavior: HitTestBehavior.opaque,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -504,8 +556,23 @@ class _IncidentCard extends StatelessWidget {
                     Text(incident.comentarios.length.toString(),
                         style: const TextStyle(
                             color: Colors.white38, fontSize: 11)),
+                    const SizedBox(width: 6),
                   ],
-                  const SizedBox(width: 6),
+
+                  // ── Botón eliminar (solo admin) ───────────────────────
+                  if (onDelete != null) ...[
+                    GestureDetector(
+                      onTap: onDelete,
+                      behavior: HitTestBehavior.opaque,
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 4),
+                        child: Icon(Icons.delete_outline,
+                            size: 16, color: CantillanaTheme.rojo),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+
                   const Icon(Icons.chevron_right,
                       size: 18, color: Colors.white38),
                 ],
