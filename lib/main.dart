@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 import 'package:cantillana_incidencias/config/router.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
+import 'package:cantillana_incidencias/controllers/IncidentController.dart';
 import 'package:cantillana_incidencias/router/app_router.dart';
 import 'package:cantillana_incidencias/services/supabase_service.dart';
 import 'package:cantillana_incidencias/utils/web_maps_loader.dart';
@@ -52,7 +53,11 @@ void main() async {
   }
 
   // Registro del AuthController de forma permanente
-  Get.put(AuthController(), permanent: true);
+  final auth = Get.put(AuthController(), permanent: true);
+
+  // Registro del IncidentController de forma permanente
+  // para que esté disponible al refrescar cualquier ruta
+  Get.put(IncidentController(authController: auth), permanent: true);
 
   // Ejecuta la app
   runApp(const CantillanaApp());

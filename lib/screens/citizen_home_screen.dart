@@ -87,8 +87,8 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar',
-                style: TextStyle(color: Colors.white54)),
+            child:
+                const Text('Cancelar', style: TextStyle(color: Colors.white54)),
           ),
           FilledButton.icon(
             onPressed: () async {
