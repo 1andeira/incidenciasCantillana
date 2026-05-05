@@ -11,11 +11,15 @@ import 'package:get/get.dart';
 import 'package:cantillana_incidencias/config/CantillanaTheme.dart';
 import 'package:cantillana_incidencias/config/router.dart';
 import 'package:cantillana_incidencias/controllers/AuthController.dart';
+import 'package:cantillana_incidencias/router/app_router.dart';
 import 'package:cantillana_incidencias/services/supabase_service.dart';
 import 'package:cantillana_incidencias/utils/web_maps_loader.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Capturar la ruta ANTES de que Supabase procese el ?code= y cambie la URL
+  if (kIsWeb) AppRouter.captureWebPath();
 
   // Silencia los avisos visuales de overflow (rayas amarillas/negras)
   // sin suprimir el resto de errores de Flutter.

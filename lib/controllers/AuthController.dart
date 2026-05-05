@@ -149,12 +149,11 @@ class AuthController extends GetxController {
           ? emailT!
           : '${telefonoT!.replaceAll(RegExp(r'\D'), '')}@cantillana.local';
 
-      // El rol viaja en user_metadata → el trigger handle_new_user lo lee
-      // al confirmar el email y crea la fila en public.usuarios con rol correcto
       final res = await _sb.auth.signUp(
         email: authEmail,
         password: contrasena,
-        emailRedirectTo: 'io.supabase.cantillanaincidencias://login-callback',
+        emailRedirectTo:
+            'https://nxfnrkzzkegmbduktnph.supabase.co/functions/v1/email-confirmed',
         data: {
           'nombre': nombre.trim(),
           if (telefonoT?.isNotEmpty == true) 'telefono': telefonoT,
@@ -164,14 +163,12 @@ class AuthController extends GetxController {
 
       if (res.user == null) throw Exception('No se pudo crear el usuario');
 
-      // Confirmación de email requerida → esperamos al deep link
       if (res.session == null) {
         status(AuthStatus.pendingVerification);
         errorMessage('');
         return false;
       }
 
-      // Confirmación desactivada → sesión inmediata, upsert directo
       await _sb.from('usuarios').upsert({
         'id': res.user!.id,
         'nombre': nombre.trim(),
@@ -240,7 +237,6 @@ class AuthController extends GetxController {
       ));
       status(AuthStatus.authenticated);
     } catch (_) {
-      // Perfil aún no creado por el trigger → volvemos a unauthenticated
       status(AuthStatus.unauthenticated);
     }
   }
