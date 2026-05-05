@@ -153,7 +153,7 @@ class AuthController extends GetxController {
         email: authEmail,
         password: contrasena,
         emailRedirectTo:
-            'https://nxfnrkzzkegmbduktnph.supabase.co/functions/v1/email-confirmed',
+            'https://alumno26.fpcantillana.org/verificado.html',
         data: {
           'nombre': nombre.trim(),
           if (telefonoT?.isNotEmpty == true) 'telefono': telefonoT,
