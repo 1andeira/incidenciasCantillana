@@ -1,7 +1,3 @@
-// ─────────────────────────────────────────
-// lib/controllers/IncidentController.dart
-// ─────────────────────────────────────────
-
 import 'dart:io' show File;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -14,7 +10,7 @@ import 'package:cantillana_incidencias/models/comentarioModel.dart';
 import 'package:cantillana_incidencias/models/ubicacionModel.dart';
 import 'package:cantillana_incidencias/services/supabase_service.dart';
 
-enum SortOption { newest, oldest }
+enum SortOption { mostVoted, newest, oldest }
 
 class IncidentController extends GetxController {
   final AuthController authController;
@@ -22,7 +18,7 @@ class IncidentController extends GetxController {
 
   IncidentController({required this.authController});
 
-  // ── Estado ───────────────────────────────────────────────────────────────
+  // ── Estado ────────────────────────────────────────────────────────────────
   final _allIncidents = <IncidentModel>[].obs;
   final categorias = <CategoriaModel>[].obs;
 
@@ -31,16 +27,15 @@ class IncidentController extends GetxController {
   var errorMessage = ''.obs;
   var isDetailLoading = false.obs;
 
-  // ── Imágenes pendientes ──────────────────────────────────────────────────
-  // Se almacenan como XFile para que funcione en web y móvil
+  // ── Imágenes pendientes ───────────────────────────────────────────────────
   final _imagePicker = ImagePicker();
   final pendingImages = <XFile>[].obs;
 
-  // ── Filtros ──────────────────────────────────────────────────────────────
+  // ── Filtros ───────────────────────────────────────────────────────────────
   var searchQuery = ''.obs;
   var selectedCategoriaId = Rxn<int>();
   var selectedEstado = 'all'.obs;
-  var sortOption = SortOption.newest.obs;
+  var sortOption = SortOption.mostVoted.obs;
   var onlyMine = false.obs;
 
   // ── Vista filtrada ────────────────────────────────────────────────────────
@@ -75,6 +70,11 @@ class IncidentController extends GetxController {
     }
 
     switch (sortOption.value) {
+      case SortOption.mostVoted:
+        list.sort((a, b) {
+          final cmp = b.votosCount.compareTo(a.votosCount);
+          return cmp != 0 ? cmp : b.fechaCreacion.compareTo(a.fechaCreacion);
+        });
       case SortOption.newest:
         list.sort((a, b) => b.fechaCreacion.compareTo(a.fechaCreacion));
       case SortOption.oldest:
@@ -124,6 +124,8 @@ class IncidentController extends GetxController {
     try {
       isLoading(true);
       hasError(false);
+      errorMessage('');
+
       final rows = await _sb.from('incidencias').select('''
         *,
         categorias ( nombre ),
@@ -133,16 +135,106 @@ class IncidentController extends GetxController {
           usuarios ( nombre )
         )
       ''').order('fecha_creacion', ascending: false);
+
+      // ✅ CORREGIDO: Log de debug para ver qué llega
+      print('📦 Incidencias recibidas: ${rows.length}');
+      if (rows.isNotEmpty) {
+        print('📦 Primera: ${rows.first['titulo']}');
+        print('📦 Tipo categorias: ${rows.first['categorias']?.runtimeType}');
+        print('📦 Tipo usuarios: ${rows.first['usuarios']?.runtimeType}');
+      }
+
       _allIncidents.assignAll(rows.map(_rowToIncident));
-    } catch (e) {
+
+      // ✅ CORREGIDO: Solo enriquecer votos si hay incidencias
+      if (_allIncidents.isNotEmpty) {
+        await _fetchVotos();
+      }
+    } catch (e, stack) {
       hasError(true);
       errorMessage('Error al cargar las incidencias: $e');
+      // ✅ CORREGIDO: Log completo del error
+      print('❌ Error fetchIncidents: $e');
+      print('❌ Stack: $stack');
     } finally {
       isLoading(false);
     }
   }
 
+  /// ✅ CORREGIDO: Carga votos sin iterar sobre _allIncidents mientras se reemplaza
+  Future<void> _fetchVotos() async {
+    try {
+      final rows = await _sb.from('votos').select('incidencia_id, usuario_id');
+
+      final countMap = <int, int>{};
+      final userVotedIds = <int>{};
+      final uid = authController.userId;
+
+      for (final row in rows) {
+        final iid = row['incidencia_id'] as int;
+        countMap[iid] = (countMap[iid] ?? 0) + 1;
+        if (uid.isNotEmpty && row['usuario_id'] == uid) {
+          userVotedIds.add(iid);
+        }
+      }
+
+      // ✅ CORREGIDO: Crear lista nueva, no map sobre _allIncidents directamente
+      final updatedList = <IncidentModel>[];
+      for (final incident in _allIncidents) {
+        updatedList.add(incident.copyWith(
+          votosCount: countMap[incident.id] ?? 0,
+          hasVoted: userVotedIds.contains(incident.id),
+        ));
+      }
+
+      _allIncidents.assignAll(updatedList);
+
+      print('✅ Votos cargados: ${countMap.length} incidencias con votos');
+    } catch (e, stack) {
+      print('❌ Error _fetchVotos: $e');
+      print('❌ Stack: $stack');
+    }
+  }
+
   Future<void> refresh() => fetchIncidents();
+
+  // ── Votos ──────────────────────────────────────────────────────────────────
+  Future<void> toggleVote(int incidentId) async {
+    if (!authController.isAuthenticated) return;
+
+    final incident = _allIncidents.firstWhereOrNull((i) => i.id == incidentId);
+    if (incident == null) return;
+
+    final uid = authController.userId;
+    final wasVoted = incident.hasVoted;
+
+    // Actualización optimista
+    updateIncident(incident.copyWith(
+      votosCount: wasVoted
+          ? (incident.votosCount - 1).clamp(0, 99999)
+          : incident.votosCount + 1,
+      hasVoted: !wasVoted,
+    ));
+
+    try {
+      if (wasVoted) {
+        await _sb
+            .from('votos')
+            .delete()
+            .eq('incidencia_id', incidentId)
+            .eq('usuario_id', uid);
+      } else {
+        await _sb.from('votos').insert({
+          'incidencia_id': incidentId,
+          'usuario_id': uid,
+        });
+      }
+    } catch (e) {
+      // Revertir si falla
+      print('❌ Error toggleVote: $e');
+      updateIncident(incident);
+    }
+  }
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
   Future<IncidentModel?> createIncident({
@@ -180,6 +272,7 @@ class IncidentController extends GetxController {
       return incident;
     } catch (e) {
       errorMessage('Error al crear la incidencia: $e');
+      print('❌ Error createIncident: $e');
       return null;
     } finally {
       isDetailLoading(false);
@@ -275,19 +368,14 @@ class IncidentController extends GetxController {
 
   void clearPendingImages() => pendingImages.clear();
 
-  /// Sube las imágenes pendientes de forma compatible con web y móvil.
-  /// - Web: lee bytes del XFile y usa uploadBinary.
-  /// - Móvil: usa File del sistema de archivos.
   Future<List<String>> _uploadPendingImages() async {
     final urls = <String>[];
     final uid = authController.userId;
-
     for (final xfile in pendingImages) {
       final ext = xfile.name.contains('.')
           ? xfile.name.split('.').last
           : xfile.path.split('.').last;
       final fileName = '$uid/${DateTime.now().microsecondsSinceEpoch}.$ext';
-
       if (kIsWeb) {
         final bytes = await xfile.readAsBytes();
         await _sb.storage.from('incidencias').uploadBinary(fileName, bytes);
@@ -296,11 +384,9 @@ class IncidentController extends GetxController {
             .from('incidencias')
             .upload(fileName, File(xfile.path));
       }
-
       final url = _sb.storage.from('incidencias').getPublicUrl(fileName);
       urls.add(url);
     }
-
     return urls;
   }
 
@@ -309,20 +395,29 @@ class IncidentController extends GetxController {
     searchQuery('');
     selectedEstado.value = 'all';
     selectedCategoriaId.value = null;
-    sortOption(SortOption.newest);
+    sortOption(SortOption.mostVoted);
     onlyMine(false);
   }
 
+  // ✅ CORREGIDO: sortOption por defecto (mostVoted) NO cuenta como filtro activo
   bool get hasActiveFilters =>
       searchQuery.value.isNotEmpty ||
       selectedEstado.value != 'all' ||
       selectedCategoriaId.value != null ||
-      sortOption.value != SortOption.newest ||
       onlyMine.value;
 
   // ── Mappers ───────────────────────────────────────────────────────────────
   IncidentModel _rowToIncident(Map<String, dynamic> r) {
     final comentariosRaw = (r['comentarios'] as List<dynamic>? ?? []);
+
+    // ✅ CORREGIDO: Logs de debug para mapeo
+    if (r['categorias'] == null) {
+      print('⚠️ categorias es null para id=${r['id']}');
+    }
+    if (r['usuarios'] == null) {
+      print('⚠️ usuarios es null para id=${r['id']}');
+    }
+
     return IncidentModel(
       id: r['id'] as int,
       usuarioId: r['usuario_id'] as String,
@@ -347,6 +442,9 @@ class IncidentController extends GetxController {
       comentarios: comentariosRaw
           .map((c) => _rowToComentario(c as Map<String, dynamic>))
           .toList(),
+      votosCount:
+          0, // ✅ CORREGIDO: Siempre empieza en 0, se actualiza en _fetchVotos
+      hasVoted: false,
     );
   }
 

@@ -323,6 +323,9 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
                     onDelete: _auth.isAdmin
                         ? () => _showDeleteConfirm(context, list[i])
                         : null,
+                    onVote: _auth.isAuthenticated
+                        ? () => _ctrl.toggleVote(list[i].id)
+                        : null,
                   ),
                 ),
               );
@@ -412,6 +415,7 @@ class _IncidentCard extends StatelessWidget {
   final IconData iconEstado;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
+  final VoidCallback? onVote;
 
   const _IncidentCard({
     required this.incident,
@@ -419,6 +423,7 @@ class _IncidentCard extends StatelessWidget {
     required this.iconEstado,
     required this.onTap,
     this.onDelete,
+    this.onVote,
   });
 
   Future<void> _abrirEnMaps(BuildContext context) async {
@@ -488,7 +493,7 @@ class _IncidentCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
-              // ── Meta: categoría · fecha · ubicación · comentarios ───
+              // ── Meta: categoría · fecha · votos · ubicación · comentarios ───
               Row(
                 children: [
                   if (incident.categoriaNombre != null) ...[
@@ -516,6 +521,56 @@ class _IncidentCard extends StatelessWidget {
                       style:
                           const TextStyle(color: Colors.white38, fontSize: 11)),
                   const Spacer(),
+
+                  // ── Botón de votos ──────────────────────────────────
+                  GestureDetector(
+                    onTap: onVote,
+                    behavior: HitTestBehavior.opaque,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: incident.hasVoted
+                            ? CantillanaTheme.dorado.withOpacity(0.18)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: incident.hasVoted
+                              ? CantillanaTheme.dorado
+                              : Colors.white24,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            incident.hasVoted
+                                ? Icons.thumb_up
+                                : Icons.thumb_up_outlined,
+                            size: 11,
+                            color: incident.hasVoted
+                                ? CantillanaTheme.dorado
+                                : Colors.white38,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            incident.votosCount.toString(),
+                            style: TextStyle(
+                              color: incident.hasVoted
+                                  ? CantillanaTheme.dorado
+                                  : Colors.white38,
+                              fontSize: 11,
+                              fontWeight: incident.hasVoted
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
 
                   // ── Badge de ubicación ────────────────────────────────
                   if (incident.hasUbicacion) ...[
@@ -776,14 +831,20 @@ class _FiltersSheet extends StatelessWidget {
                 ),
               ]),
               _FilterSection(title: 'Ordenar', children: [
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
+                    _SortChip(
+                      label: 'Más votadas',
+                      selected: ctrl.sortOption.value == SortOption.mostVoted,
+                      onTap: () => ctrl.sortOption(SortOption.mostVoted),
+                    ),
                     _SortChip(
                       label: 'Más recientes',
                       selected: ctrl.sortOption.value == SortOption.newest,
                       onTap: () => ctrl.sortOption(SortOption.newest),
                     ),
-                    const SizedBox(width: 8),
                     _SortChip(
                       label: 'Más antiguas',
                       selected: ctrl.sortOption.value == SortOption.oldest,

@@ -18,6 +18,17 @@
             </intent-filter>
         </activity>
 
+        <!-- flutter_web_auth_2 callback para OAuth -->
+        <activity android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
+                  android:exported="true">
+            <intent-filter android:label="flutter_web_auth_2">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="io.supabase.cantillana" />
+            </intent-filter>
+        </activity>
+
         <meta-data android:name="flutterEmbedding" android:value="2" />
         <meta-data android:name="com.google.android.geo.API_KEY" android:value="${GOOGLE_MAPS_API_KEY}" />
     </application>

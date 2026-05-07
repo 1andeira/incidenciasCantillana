@@ -46,13 +46,11 @@ class _LoginScreenState extends State<LoginScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
 
-    // El comando admin se detecta en el campo EMAIL (credencialCtrl)
     _credencialCtrl.addListener(_checkAdminCommand);
   }
 
   void _checkAdminCommand() {
     if (_credencialCtrl.text.trim() == '/admincantillana') {
-      // Quitar listener antes de clear() para evitar re-entrada
       _credencialCtrl.removeListener(_checkAdminCommand);
       _credencialCtrl.clear();
       _credencialCtrl.addListener(_checkAdminCommand);
@@ -105,7 +103,6 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    // Capturar el flag ANTES de cualquier await
     final bool esAdmin = _pendingAdmin;
 
     bool ok;
@@ -129,6 +126,11 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     if (ok && mounted) context.go('/');
+  }
+
+  Future<void> _signInWithGoogle() async {
+    await _authController.signInWithGoogle();
+    // El router se encarga de navegar cuando el estado cambia a authenticated
   }
 
   @override
@@ -216,7 +218,6 @@ class _LoginScreenState extends State<LoginScreen>
                               fontSize: 13,
                               letterSpacing: 0.5),
                         ),
-                        // Indicador visual modo admin
                         if (_pendingAdmin) ...[
                           const SizedBox(height: 8),
                           Container(
@@ -359,6 +360,8 @@ class _LoginScreenState extends State<LoginScreen>
                                       : null,
                                 ),
                                 const SizedBox(height: 6),
+
+                                // ── Mensaje de error ──────────────────
                                 Obx(() {
                                   final msg =
                                       _authController.errorMessage.value;
@@ -394,6 +397,8 @@ class _LoginScreenState extends State<LoginScreen>
                                   );
                                 }),
                                 const SizedBox(height: 20),
+
+                                // ── Botón principal ───────────────────
                                 Obx(
                                   () => SizedBox(
                                     width: double.infinity,
@@ -434,7 +439,84 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+
+                                // ── Separador "o continúa con" (solo login) ──
+                                if (!_isRegisterMode) ...[
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Divider(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.15),
+                                            thickness: 1),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12),
+                                        child: Text(
+                                          'o continúa con',
+                                          style: TextStyle(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.45),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Divider(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.15),
+                                            thickness: 1),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 14),
+
+                                  // ── Botón Google ──────────────────────
+                                  Obx(() => SizedBox(
+                                        width: double.infinity,
+                                        height: 48,
+                                        child: OutlinedButton(
+                                          onPressed: _authController.isLoading
+                                              ? null
+                                              : _signInWithGoogle,
+                                          style: OutlinedButton.styleFrom(
+                                            backgroundColor: Colors.white,
+                                            foregroundColor:
+                                                const Color(0xFF3C4043),
+                                            side: const BorderSide(
+                                                color: Color(0xFFDADCE0),
+                                                width: 1.5),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              // Logo Google en SVG inline
+                                              _GoogleLogo(),
+                                              const SizedBox(width: 10),
+                                              const Text(
+                                                'Continuar con Google',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF3C4043),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      )),
+                                ],
+
+                                const SizedBox(height: 4),
                                 Center(
                                   child: TextButton(
                                     onPressed: _toggleMode,
@@ -463,7 +545,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 18),
+                                const SizedBox(height: 10),
                                 Center(
                                   child: OutlinedButton.icon(
                                     icon: const Icon(Icons.person_outline,
@@ -504,6 +586,82 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────
+// Logo de Google pintado con CustomPaint
+// (sin dependencias externas)
+// ─────────────────────────────────────────
+class _GoogleLogo extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 20,
+      height: 20,
+      child: CustomPaint(painter: _GoogleLogoPainter()),
+    );
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double cx = size.width / 2;
+    final double cy = size.height / 2;
+    final double r = size.width / 2;
+
+    // Colores oficiales Google
+    const blue = Color(0xFF4285F4);
+    const red = Color(0xFFEA4335);
+    const yellow = Color(0xFFFBBC05);
+    const green = Color(0xFF34A853);
+
+    final paint = Paint()..style = PaintingStyle.fill;
+    final strokePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = r * 0.38
+      ..strokeCap = StrokeCap.butt;
+
+    // Arco azul (derecha, ~88°)
+    strokePaint.color = blue;
+    canvas.drawArc(Rect.fromCircle(center: Offset(cx, cy), radius: r * 0.62),
+        -0.08, 1.65, false, strokePaint);
+
+    // Arco rojo (arriba izquierda, ~95°)
+    strokePaint.color = red;
+    canvas.drawArc(Rect.fromCircle(center: Offset(cx, cy), radius: r * 0.62),
+        1.57, 1.67, false, strokePaint);
+
+    // Arco amarillo (abajo izquierda, ~50°)
+    strokePaint.color = yellow;
+    canvas.drawArc(Rect.fromCircle(center: Offset(cx, cy), radius: r * 0.62),
+        3.24, 0.84, false, strokePaint);
+
+    // Arco verde (abajo derecha, ~52°)
+    strokePaint.color = green;
+    canvas.drawArc(Rect.fromCircle(center: Offset(cx, cy), radius: r * 0.62),
+        4.08, 0.98, false, strokePaint);
+
+    // Barra horizontal azul (la "G")
+    paint.color = blue;
+    canvas.drawRect(
+      Rect.fromLTWH(cx, cy - r * 0.19, r * 1.05, r * 0.38),
+      paint,
+    );
+
+    // Tapa blanca del círculo interior (simula el hueco de la G)
+    paint.color = Colors.white;
+    canvas.drawCircle(Offset(cx, cy), r * 0.43, paint);
+
+    // Punto blanco que cubre el extremo izquierdo de la barra
+    canvas.drawRect(
+      Rect.fromLTWH(cx - r * 0.02, cy - r * 0.19, r * 0.45, r * 0.38),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ─────────────────────────────────────────

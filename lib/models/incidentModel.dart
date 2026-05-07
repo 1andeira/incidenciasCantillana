@@ -1,7 +1,3 @@
-// ─────────────────────────────────────────
-// lib/models/incidentModel.dart
-// ─────────────────────────────────────────
-
 import 'package:cantillana_incidencias/models/comentarioModel.dart';
 import 'package:cantillana_incidencias/models/ubicacionModel.dart';
 
@@ -9,19 +5,21 @@ enum IncidentEstado { pendiente, en_proceso, resuelta, rechazada }
 
 class IncidentModel {
   final int id;
-  final String usuarioId; // UUID de auth.users
+  final String usuarioId;
   final int categoriaId;
   final String titulo;
   final String descripcion;
   final DateTime fechaCreacion;
   final IncidentEstado estado;
-  final List<String> imagenes; // URLs públicas del bucket Supabase
-  final UbicacionModel? ubicacion; // Columnas planas en la BD
-
-  // ── Campos enriquecidos (JOINs) ─────────────────────────────────────────
+  final List<String> imagenes;
+  final UbicacionModel? ubicacion;
   final String? categoriaNombre;
   final String? usuarioNombre;
   final List<ComentarioModel> comentarios;
+
+  // ── Votos ────────────────────────────────────────────────────────────────
+  final int votosCount;
+  final bool hasVoted;
 
   const IncidentModel({
     required this.id,
@@ -36,6 +34,8 @@ class IncidentModel {
     this.categoriaNombre,
     this.usuarioNombre,
     this.comentarios = const [],
+    this.votosCount = 0,
+    this.hasVoted = false,
   });
 
   factory IncidentModel.fromJson(Map<String, dynamic> json) => IncidentModel(
@@ -64,9 +64,10 @@ class IncidentModel {
         comentarios: (json['comentarios'] as List<dynamic>? ?? [])
             .map((e) => ComentarioModel.fromJson(e as Map<String, dynamic>))
             .toList(),
+        votosCount: json['votos_count'] as int? ?? 0,
+        hasVoted: json['has_voted'] as bool? ?? false,
       );
 
-  /// Solo columnas de la tabla `incidencias`
   Map<String, dynamic> toJson() => {
         'id': id,
         'usuario_id': usuarioId,
@@ -94,6 +95,8 @@ class IncidentModel {
     String? categoriaNombre,
     String? usuarioNombre,
     List<ComentarioModel>? comentarios,
+    int? votosCount,
+    bool? hasVoted,
   }) =>
       IncidentModel(
         id: id,
@@ -108,9 +111,10 @@ class IncidentModel {
         categoriaNombre: categoriaNombre ?? this.categoriaNombre,
         usuarioNombre: usuarioNombre ?? this.usuarioNombre,
         comentarios: comentarios ?? this.comentarios,
+        votosCount: votosCount ?? this.votosCount,
+        hasVoted: hasVoted ?? this.hasVoted,
       );
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
   String get estadoLabel => switch (estado) {
         IncidentEstado.pendiente => 'Pendiente',
         IncidentEstado.en_proceso => 'En Proceso',

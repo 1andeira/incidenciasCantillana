@@ -28,10 +28,8 @@ abstract class AppRoutes {
 class AppRouter {
   AppRouter._();
 
-  // Ruta capturada en main() ANTES de que Supabase procese el ?code=
   static String _webStartPath = '/';
 
-  /// Llamar desde main() antes de SupabaseService.init()
   static void captureWebPath() {
     if (kIsWeb) _webStartPath = Uri.base.path;
   }
@@ -97,13 +95,21 @@ class AppRouter {
 
   static String? _guard(BuildContext context, GoRouterState state) {
     final path = state.uri.path;
+    final authStatus = _auth.status.value;
 
-    // Permitir el callback usando tanto el estado de GoRouter como
-    // la ruta capturada antes de que Supabase cambiara la URL
+    // Esperar a que Supabase termine de inicializar / procesar el code
+    if (authStatus == AuthStatus.initial || authStatus == AuthStatus.loading)
+      return null;
+
+    // Permitir el callback OAuth
     final isOnCallback = path == AppRoutes.loginCallback ||
         _webStartPath == AppRoutes.loginCallback;
-
     if (isOnCallback) return null;
+
+    // Si hay ?code= en la URL (redirect de Google/email) dejar pasar
+    // para que supabase_flutter lo procese en onAuthStateChange
+    final hasCode = state.uri.queryParameters.containsKey('code');
+    if (hasCode) return null;
 
     final isAuth = _auth.isAuthenticated;
     final isOnLogin = path == AppRoutes.login;
