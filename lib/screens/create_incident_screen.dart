@@ -24,6 +24,22 @@ import 'package:cantillana_incidencias/screens/map_picker_screen.dart';
 // mediante una guardia kIsWeb en tiempo de ejecución.
 import 'package:permission_handler/permission_handler.dart';
 
+// ─── IMPORTANTE ───────────────────────────────────────────────────────────────
+// Para que Google Maps funcione en la versión WEB debes añadir en
+// web/index.html, dentro de <head>, antes del cierre </head>:
+//
+//   <script src="https://maps.googleapis.com/maps/api/js?key=TU_API_KEY"></script>
+//
+// Y en pubspec.yaml asegúrate de tener:
+//   google_maps_flutter: ^2.x.x          (ya lo tienes)
+//   google_maps_flutter_web: ^0.5.x       (añádelo si no está)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Clave de API para Static Maps (web preview) ───────────────────────────────
+// Puedes reutilizar la misma clave de Maps JS; asegúrate de que la API
+// "Maps Static API" esté habilitada en tu proyecto de Google Cloud.
+const String _kStaticMapsApiKey = 'TU_API_KEY_AQUI';
+
 class CreateIncidentScreen extends StatefulWidget {
   const CreateIncidentScreen({super.key});
 
@@ -434,29 +450,39 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
         children: [
           SizedBox(
             height: 160,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: LatLng(_ubicacion!.latitud, _ubicacion!.longitud),
-                zoom: 16.0,
-              ),
-              markers: {
-                Marker(
-                  markerId: const MarkerId('preview'),
-                  position: LatLng(_ubicacion!.latitud, _ubicacion!.longitud),
-                  icon: BitmapDescriptor.defaultMarkerWithHue(
-                      BitmapDescriptor.hueRed),
-                ),
-              },
-              zoomControlsEnabled: false,
-              mapToolbarEnabled: false,
-              myLocationButtonEnabled: false,
-              scrollGesturesEnabled: false,
-              zoomGesturesEnabled: false,
-              rotateGesturesEnabled: false,
-              tiltGesturesEnabled: false,
-              // liteModeEnabled solo existe en Android — no compatible con web
-              liteModeEnabled: kIsWeb ? false : true,
-            ),
+            // ── En web: Static Maps API (imagen) ──────────────────────────
+            // No requiere el widget GoogleMap ni configuración adicional del
+            // DOM; simplemente carga una imagen PNG desde la API REST.
+            // ── En móvil: GoogleMap widget nativo ─────────────────────────
+            child: kIsWeb
+                ? _buildStaticMapPreview(
+                    lat: _ubicacion!.latitud,
+                    lng: _ubicacion!.longitud,
+                  )
+                : GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(_ubicacion!.latitud, _ubicacion!.longitud),
+                      zoom: 16.0,
+                    ),
+                    markers: {
+                      Marker(
+                        markerId: const MarkerId('preview'),
+                        position:
+                            LatLng(_ubicacion!.latitud, _ubicacion!.longitud),
+                        icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueRed),
+                      ),
+                    },
+                    zoomControlsEnabled: false,
+                    mapToolbarEnabled: false,
+                    myLocationButtonEnabled: false,
+                    scrollGesturesEnabled: false,
+                    zoomGesturesEnabled: false,
+                    rotateGesturesEnabled: false,
+                    tiltGesturesEnabled: false,
+                    // liteModeEnabled solo existe en Android
+                    liteModeEnabled: true,
+                  ),
           ),
           Container(
             color: const Color(0xFF0E4023),
@@ -500,6 +526,79 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
           ),
         ],
       ),
+    );
+  }
+
+  // ── Static Maps preview (solo web) ───────────────────────────────────────
+  //
+  // Genera una URL de Google Static Maps API y la muestra como Image.network.
+  // Ventajas sobre el widget GoogleMap en web:
+  //   • No depende del script de Maps JS cargado en index.html para este widget.
+  //   • No hay conflictos con el iframe interno de google_maps_flutter_web.
+  //   • Es solo lectura, perfecto para una previsualización.
+  //
+  // Documentación: https://developers.google.com/maps/documentation/maps-static
+  Widget _buildStaticMapPreview({
+    required double lat,
+    required double lng,
+    int zoom = 16,
+    int width = 600,
+    int height = 320,
+  }) {
+    final url = Uri.https(
+      'maps.googleapis.com',
+      '/maps/api/staticmap',
+      {
+        'center': '$lat,$lng',
+        'zoom': '$zoom',
+        'size': '${width}x$height',
+        'scale': '2', // retina
+        'maptype': 'roadmap',
+        'markers': 'color:red|$lat,$lng',
+        'key': _kStaticMapsApiKey,
+      },
+    ).toString();
+
+    return Image.network(
+      url,
+      width: double.infinity,
+      height: 160,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: const Color(0xFF0E4023),
+          child: const Center(
+            child: CircularProgressIndicator(
+              color: CantillanaTheme.dorado,
+              strokeWidth: 2,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        // Fallback si la clave no está configurada o hay error de red
+        return Container(
+          color: const Color(0xFF0E4023),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.map_outlined,
+                  color: CantillanaTheme.dorado, size: 32),
+              const SizedBox(height: 8),
+              Text(
+                '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Vista de mapa no disponible',
+                style: TextStyle(color: Colors.white38, fontSize: 11),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

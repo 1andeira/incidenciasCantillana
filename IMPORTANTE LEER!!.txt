@@ -23,7 +23,6 @@ uso de un servidor apache para el correcto funcionamiento del archivo .htaccess 
 
 -- TODO --
 
-implementar roles para gestionar las limitaciones administrativas de la aplicación
 
 
-comando compilar: flutter build web --base-href "/app/" (deprecado por implementacion de .env.json)
+comando compilar: flutter build web --base-href "/app/" --dart-define-from-file=.env.json
