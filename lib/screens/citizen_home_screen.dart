@@ -30,6 +30,8 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
   void initState() {
     super.initState();
     _ctrl = Get.put(IncidentController(authController: _auth));
+    // Orden por defecto: más populares
+    _ctrl.sortOption(SortOption.mostVoted);
     _searchCtrl.addListener(() => _ctrl.searchQuery(_searchCtrl.text));
   }
 
@@ -286,6 +288,15 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
             );
           }),
 
+          // ── Barra de ordenación rápida ────────────────────────────────
+          Obx(() {
+            final current = _ctrl.sortOption.value;
+            return _QuickSortBar(
+              current: current,
+              onSelect: (opt) => _ctrl.sortOption(opt),
+            );
+          }),
+
           // ── Lista ─────────────────────────────────────────────────────
           Expanded(
             child: Obx(() {
@@ -343,6 +354,94 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
           side: const BorderSide(color: CantillanaTheme.dorado, width: 1.5),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// Barra de ordenación rápida
+// ─────────────────────────────────────────
+class _QuickSortBar extends StatelessWidget {
+  final SortOption current;
+  final void Function(SortOption) onSelect;
+
+  const _QuickSortBar({required this.current, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+      child: Row(
+        children: [
+          _QuickSortTab(
+            label: 'Populares',
+            icon: Icons.local_fire_department_outlined,
+            selected: current == SortOption.mostVoted,
+            onTap: () => onSelect(SortOption.mostVoted),
+          ),
+          const SizedBox(width: 8),
+          _QuickSortTab(
+            label: 'Recientes',
+            icon: Icons.access_time_outlined,
+            selected: current == SortOption.newest,
+            onTap: () => onSelect(SortOption.newest),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickSortTab extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _QuickSortTab({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? CantillanaTheme.dorado.withValues(alpha: 0.18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? CantillanaTheme.dorado : Colors.white24,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: selected ? CantillanaTheme.dorado : Colors.white38,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? CantillanaTheme.dorado : Colors.white38,
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -501,10 +600,11 @@ class _IncidentCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: CantillanaTheme.dorado.withOpacity(0.15),
+                        color: CantillanaTheme.dorado.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: CantillanaTheme.dorado.withOpacity(0.5)),
+                            color:
+                                CantillanaTheme.dorado.withValues(alpha: 0.5)),
                       ),
                       child: Text(incident.categoriaNombre!,
                           style: TextStyle(
@@ -532,7 +632,7 @@ class _IncidentCard extends StatelessWidget {
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: incident.hasVoted
-                            ? CantillanaTheme.dorado.withOpacity(0.18)
+                            ? CantillanaTheme.dorado.withValues(alpha: 0.18)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
@@ -581,10 +681,11 @@ class _IncidentCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
-                          color: CantillanaTheme.dorado.withOpacity(0.13),
+                          color: CantillanaTheme.dorado.withValues(alpha: 0.13),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color: CantillanaTheme.dorado.withOpacity(0.55)),
+                              color: CantillanaTheme.dorado
+                                  .withValues(alpha: 0.55)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
@@ -655,9 +756,9 @@ class _EstadoBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.7)),
+        border: Border.all(color: color.withValues(alpha: 0.7)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -746,7 +847,6 @@ class _FiltersSheet extends StatelessWidget {
           final _ = ctrl.onlyMine.value.toString() +
               ctrl.selectedEstado.value +
               (ctrl.selectedCategoriaId.value?.toString() ?? '') +
-              ctrl.sortOption.value.toString() +
               ctrl.categorias.length.toString();
           return ListView(
             controller: scrollController,
@@ -827,29 +927,6 @@ class _FiltersSheet extends StatelessWidget {
                           selected: ctrl.selectedCategoriaId.value == c.id,
                           onTap: () => ctrl.selectedCategoriaId.value = c.id,
                         )),
-                  ],
-                ),
-              ]),
-              _FilterSection(title: 'Ordenar', children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _SortChip(
-                      label: 'Más votadas',
-                      selected: ctrl.sortOption.value == SortOption.mostVoted,
-                      onTap: () => ctrl.sortOption(SortOption.mostVoted),
-                    ),
-                    _SortChip(
-                      label: 'Más recientes',
-                      selected: ctrl.sortOption.value == SortOption.newest,
-                      onTap: () => ctrl.sortOption(SortOption.newest),
-                    ),
-                    _SortChip(
-                      label: 'Más antiguas',
-                      selected: ctrl.sortOption.value == SortOption.oldest,
-                      onTap: () => ctrl.sortOption(SortOption.oldest),
-                    ),
                   ],
                 ),
               ]),
@@ -979,35 +1056,6 @@ class _CategoriaChip extends StatelessWidget {
   }
 }
 
-class _SortChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _SortChip(
-      {required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? CantillanaTheme.rojo : const Color(0xFF1B5E20),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-              color: selected ? CantillanaTheme.dorado : Colors.white24),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                color: selected ? Colors.white : Colors.white70,
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
-      ),
-    );
-  }
-}
-
 // ─────────────────────────────────────────
 // Estados vacío / error
 // ─────────────────────────────────────────
@@ -1021,7 +1069,7 @@ class _EmptyView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.inbox_outlined,
-              size: 64, color: CantillanaTheme.dorado.withOpacity(0.4)),
+              size: 64, color: CantillanaTheme.dorado.withValues(alpha: 0.4)),
           const SizedBox(height: 12),
           const Text('No hay incidencias',
               style: TextStyle(color: Colors.white70, fontSize: 16)),

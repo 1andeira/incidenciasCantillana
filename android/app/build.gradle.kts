@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -8,7 +10,7 @@ plugins {
 val dartDefines: Map<String, String> = run {
     val encoded = project.findProperty("dart-defines") as String? ?: return@run emptyMap()
     encoded.split(",").associate { entry ->
-        val decoded = String(java.util.Base64.getDecoder().decode(entry)).split("=")
+        val decoded = String(Base64.getDecoder().decode(entry)).split("=")
         if (decoded.size == 2) decoded[0] to decoded[1] else "" to ""
     }.filterKeys { it.isNotEmpty() }
 }
@@ -24,7 +26,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
