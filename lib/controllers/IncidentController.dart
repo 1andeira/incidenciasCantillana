@@ -161,38 +161,24 @@ class IncidentController extends GetxController {
     }
   }
 
-  /// ✅ CORREGIDO: Carga votos sin iterar sobre _allIncidents mientras se reemplaza
   Future<void> _fetchVotos() async {
     try {
-      final rows = await _sb.from('votos').select('incidencia_id, usuario_id');
-
-      final countMap = <int, int>{};
-      final userVotedIds = <int>{};
       final uid = authController.userId;
+      if (uid.isEmpty) return;
 
-      for (final row in rows) {
-        final iid = row['incidencia_id'] as int;
-        countMap[iid] = (countMap[iid] ?? 0) + 1;
-        if (uid.isNotEmpty && row['usuario_id'] == uid) {
-          userVotedIds.add(iid);
-        }
-      }
+      final rows =
+          await _sb.from('votos').select('incidencia_id').eq('usuario_id', uid);
 
-      // ✅ CORREGIDO: Crear lista nueva, no map sobre _allIncidents directamente
-      final updatedList = <IncidentModel>[];
-      for (final incident in _allIncidents) {
-        updatedList.add(incident.copyWith(
-          votosCount: countMap[incident.id] ?? 0,
-          hasVoted: userVotedIds.contains(incident.id),
-        ));
-      }
+      final votedIds = rows.map((r) => r['incidencia_id'] as int).toSet();
 
-      _allIncidents.assignAll(updatedList);
+      final updated = _allIncidents.map((inc) {
+        return inc.copyWith(hasVoted: votedIds.contains(inc.id));
+      }).toList();
 
-      print('✅ Votos cargados: ${countMap.length} incidencias con votos');
-    } catch (e, stack) {
+      _allIncidents.assignAll(updated);
+    } catch (e, st) {
       print('❌ Error _fetchVotos: $e');
-      print('❌ Stack: $stack');
+      print(st);
     }
   }
 
@@ -207,12 +193,13 @@ class IncidentController extends GetxController {
 
     final uid = authController.userId;
     final wasVoted = incident.hasVoted;
+    final newCount = wasVoted
+        ? (incident.votosCount - 1).clamp(0, 99999)
+        : incident.votosCount + 1;
 
     // Actualización optimista
     updateIncident(incident.copyWith(
-      votosCount: wasVoted
-          ? (incident.votosCount - 1).clamp(0, 99999)
-          : incident.votosCount + 1,
+      votosCount: newCount,
       hasVoted: !wasVoted,
     ));
 
@@ -229,8 +216,12 @@ class IncidentController extends GetxController {
           'usuario_id': uid,
         });
       }
+
+      // Actualizar contador en incidencias para que persista
+      await _sb.from('incidencias').update({
+        'votos_count': newCount,
+      }).eq('id', incidentId);
     } catch (e) {
-      // Revertir si falla
       print('❌ Error toggleVote: $e');
       updateIncident(incident);
     }
@@ -442,8 +433,7 @@ class IncidentController extends GetxController {
       comentarios: comentariosRaw
           .map((c) => _rowToComentario(c as Map<String, dynamic>))
           .toList(),
-      votosCount:
-          0, // ✅ CORREGIDO: Siempre empieza en 0, se actualiza en _fetchVotos
+      votosCount: (r['votos_count'] as int?) ?? 0,
       hasVoted: false,
     );
   }

@@ -219,8 +219,6 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
       final color = _colorEstado(incident.estado);
       final df = DateFormat('dd/MM/yyyy – HH:mm');
       final currentUserId = _auth.userId;
-
-      // Comprueba si el usuario actual es admin
       final isAdmin = _auth.isAdmin;
 
       return Scaffold(
@@ -234,7 +232,6 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
             onPressed: () => context.go('/'),
           ),
           actions: [
-            // ── Acciones exclusivas de admin ─────────────────────────────
             if (isAdmin) ...[
               Obx(() => _ctrl.isDetailLoading.value
                   ? const Padding(
@@ -248,13 +245,11 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                   : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Botón cambiar estado
                         IconButton(
                           icon: const Icon(Icons.edit_note),
                           tooltip: 'Cambiar estado',
                           onPressed: () => _showChangeEstado(incident),
                         ),
-                        // Botón eliminar
                         IconButton(
                           icon: const Icon(Icons.delete_outline,
                               color: CantillanaTheme.rojo),
@@ -303,7 +298,6 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                             fontWeight: FontWeight.w600),
                       ),
                     ),
-                  // Badge de rol admin visible en la pantalla de detalle
                   if (isAdmin) ...[
                     const SizedBox(width: 8),
                     Container(
@@ -400,7 +394,6 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                   const SizedBox(height: 24),
 
                   // ── Galería de imágenes ───────────────────────────────
-                  // Las imágenes son URLs públicas de Supabase → Image.network
                   if (incident.hasImages) ...[
                     const Text('Imágenes',
                         style: TextStyle(
@@ -521,7 +514,6 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                     ...incident.comentarios.map((c) => _CommentBubble(
                           comment: c,
                           isOwn: c.usuarioId == currentUserId,
-                          // Puede borrar: el propio autor O el admin
                           onDelete: (c.usuarioId == currentUserId || isAdmin)
                               ? () => _ctrl.deleteComentario(incident.id, c.id)
                               : null,
@@ -546,6 +538,7 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                     child: TextField(
                       controller: _commentCtrl,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
+                      // FIX: overflow no es parámetro de TextField, se eliminó
                       maxLines: 3,
                       minLines: 1,
                       textCapitalization: TextCapitalization.sentences,

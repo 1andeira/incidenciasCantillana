@@ -450,10 +450,6 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
         children: [
           SizedBox(
             height: 160,
-            // ── En web: Static Maps API (imagen) ──────────────────────────
-            // No requiere el widget GoogleMap ni configuración adicional del
-            // DOM; simplemente carga una imagen PNG desde la API REST.
-            // ── En móvil: GoogleMap widget nativo ─────────────────────────
             child: kIsWeb
                 ? _buildStaticMapPreview(
                     lat: _ubicacion!.latitud,
@@ -480,7 +476,6 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
                     zoomGesturesEnabled: false,
                     rotateGesturesEnabled: false,
                     tiltGesturesEnabled: false,
-                    // liteModeEnabled solo existe en Android
                     liteModeEnabled: true,
                   ),
           ),
@@ -530,14 +525,6 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
   }
 
   // ── Static Maps preview (solo web) ───────────────────────────────────────
-  //
-  // Genera una URL de Google Static Maps API y la muestra como Image.network.
-  // Ventajas sobre el widget GoogleMap en web:
-  //   • No depende del script de Maps JS cargado en index.html para este widget.
-  //   • No hay conflictos con el iframe interno de google_maps_flutter_web.
-  //   • Es solo lectura, perfecto para una previsualización.
-  //
-  // Documentación: https://developers.google.com/maps/documentation/maps-static
   Widget _buildStaticMapPreview({
     required double lat,
     required double lng,
@@ -552,7 +539,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
         'center': '$lat,$lng',
         'zoom': '$zoom',
         'size': '${width}x$height',
-        'scale': '2', // retina
+        'scale': '2',
         'maptype': 'roadmap',
         'markers': 'color:red|$lat,$lng',
         'key': _kStaticMapsApiKey,
@@ -577,7 +564,6 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
         );
       },
       errorBuilder: (context, error, stackTrace) {
-        // Fallback si la clave no está configurada o hay error de red
         return Container(
           color: const Color(0xFF0E4023),
           child: Column(
@@ -729,6 +715,7 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
       builder: (_, setInner) => TextFormField(
         controller: _descripcionCtrl,
         maxLength: _descMax,
+        // FIX: overflow no es parámetro de TextField, se eliminó
         maxLines: 6,
         minLines: 4,
         style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
@@ -799,7 +786,6 @@ class _CreateIncidentScreenState extends State<CreateIncidentScreen>
           ),
         ),
         const SizedBox(width: 12),
-        // Cámara solo en móvil
         if (!kIsWeb)
           Expanded(
             child: OutlinedButton.icon(

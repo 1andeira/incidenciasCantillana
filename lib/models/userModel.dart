@@ -7,7 +7,7 @@ enum UserRol { admin, usuario }
 class UserModel {
   final String id;
   final String nombre;
-  final String? email;   // viene de auth.users, NO de la tabla usuarios
+  final String? email; // viene de auth.users, NO de la tabla usuarios
   final String? telefono;
   final DateTime fechaRegistro;
   final UserRol rol;

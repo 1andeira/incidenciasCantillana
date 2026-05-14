@@ -30,7 +30,6 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
   void initState() {
     super.initState();
     _ctrl = Get.put(IncidentController(authController: _auth));
-    // Orden por defecto: más populares
     _ctrl.sortOption(SortOption.mostVoted);
     _searchCtrl.addListener(() => _ctrl.searchQuery(_searchCtrl.text));
   }
@@ -427,20 +426,16 @@ class _QuickSortTab extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 14,
-              color: selected ? CantillanaTheme.dorado : Colors.white38,
-            ),
+            Icon(icon,
+                size: 14,
+                color: selected ? CantillanaTheme.dorado : Colors.white38),
             const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? CantillanaTheme.dorado : Colors.white38,
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                  color: selected ? CantillanaTheme.dorado : Colors.white38,
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                )),
           ],
         ),
       ),
@@ -575,10 +570,12 @@ class _IncidentCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _EstadoBadge(
-                      estado: incident.estado,
-                      color: colorEstado,
-                      icon: iconEstado),
+                  Flexible(
+                    child: _EstadoBadge(
+                        estado: incident.estado,
+                        color: colorEstado,
+                        icon: iconEstado),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -593,145 +590,157 @@ class _IncidentCard extends StatelessWidget {
               const SizedBox(height: 10),
 
               // ── Meta: categoría · fecha · votos · ubicación · comentarios ───
-              Row(
-                children: [
-                  if (incident.categoriaNombre != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: CantillanaTheme.dorado.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color:
-                                CantillanaTheme.dorado.withValues(alpha: 0.5)),
-                      ),
-                      child: Text(incident.categoriaNombre!,
-                          style: TextStyle(
-                              color: CantillanaTheme.dorado,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600)),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  const Icon(Icons.calendar_today,
-                      size: 12, color: Colors.white38),
-                  const SizedBox(width: 4),
-                  Text(df.format(incident.fechaCreacion),
-                      style:
-                          const TextStyle(color: Colors.white38, fontSize: 11)),
-                  const Spacer(),
-
-                  // ── Botón de votos ──────────────────────────────────
-                  GestureDetector(
-                    onTap: onVote,
-                    behavior: HitTestBehavior.opaque,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: incident.hasVoted
-                            ? CantillanaTheme.dorado.withValues(alpha: 0.18)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: incident.hasVoted
-                              ? CantillanaTheme.dorado
-                              : Colors.white24,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            incident.hasVoted
-                                ? Icons.thumb_up
-                                : Icons.thumb_up_outlined,
-                            size: 11,
-                            color: incident.hasVoted
-                                ? CantillanaTheme.dorado
-                                : Colors.white38,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            incident.votosCount.toString(),
-                            style: TextStyle(
-                              color: incident.hasVoted
-                                  ? CantillanaTheme.dorado
-                                  : Colors.white38,
-                              fontSize: 11,
-                              fontWeight: incident.hasVoted
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-
-                  // ── Badge de ubicación ────────────────────────────────
-                  if (incident.hasUbicacion) ...[
-                    GestureDetector(
-                      onTap: () => _abrirEnMaps(context),
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
+              // ClipRect silencia el overflow sin alterar el layout:
+              // los elementos de la izquierda (categoría, fecha) siempre
+              // se ven enteros; si hay overflow se recorta por la derecha.
+              ClipRect(
+                child: Row(
+                  children: [
+                    if (incident.categoriaNombre != null) ...[
+                      Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 3),
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: CantillanaTheme.dorado.withValues(alpha: 0.13),
+                          color: CantillanaTheme.dorado.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                               color: CantillanaTheme.dorado
-                                  .withValues(alpha: 0.55)),
+                                  .withValues(alpha: 0.5)),
                         ),
-                        child: const Row(
+                        child: Text(incident.categoriaNombre!,
+                            style: TextStyle(
+                                color: CantillanaTheme.dorado,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    const Icon(Icons.calendar_today,
+                        size: 12, color: Colors.white38),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        df.format(incident.fechaCreacion),
+                        style: const TextStyle(
+                            color: Colors.white38, fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Spacer(),
+
+                    // ── Botón de votos ────────────────────────────────
+                    GestureDetector(
+                      onTap: onVote,
+                      behavior: HitTestBehavior.opaque,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: incident.hasVoted
+                              ? CantillanaTheme.dorado.withValues(alpha: 0.18)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: incident.hasVoted
+                                ? CantillanaTheme.dorado
+                                : Colors.white24,
+                          ),
+                        ),
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.location_on,
-                                size: 11, color: CantillanaTheme.dorado),
-                            SizedBox(width: 3),
-                            Text('Ver mapa',
-                                style: TextStyle(
-                                    color: CantillanaTheme.dorado,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600)),
+                            Icon(
+                              incident.hasVoted
+                                  ? Icons.thumb_up
+                                  : Icons.thumb_up_outlined,
+                              size: 11,
+                              color: incident.hasVoted
+                                  ? CantillanaTheme.dorado
+                                  : Colors.white38,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              incident.votosCount.toString(),
+                              style: TextStyle(
+                                color: incident.hasVoted
+                                    ? CantillanaTheme.dorado
+                                    : Colors.white38,
+                                fontSize: 11,
+                                fontWeight: incident.hasVoted
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
-                  ],
 
-                  if (incident.comentarios.isNotEmpty) ...[
-                    const Icon(Icons.comment_outlined,
-                        size: 14, color: Colors.white38),
-                    const SizedBox(width: 3),
-                    Text(incident.comentarios.length.toString(),
-                        style: const TextStyle(
-                            color: Colors.white38, fontSize: 11)),
-                    const SizedBox(width: 6),
-                  ],
-
-                  // ── Botón eliminar (solo admin) ───────────────────────
-                  if (onDelete != null) ...[
-                    GestureDetector(
-                      onTap: onDelete,
-                      behavior: HitTestBehavior.opaque,
-                      child: const Padding(
-                        padding: EdgeInsets.only(left: 4),
-                        child: Icon(Icons.delete_outline,
-                            size: 16, color: CantillanaTheme.rojo),
+                    // ── Badge de ubicación ────────────────────────────
+                    if (incident.hasUbicacion) ...[
+                      GestureDetector(
+                        onTap: () => _abrirEnMaps(context),
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color:
+                                CantillanaTheme.dorado.withValues(alpha: 0.13),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: CantillanaTheme.dorado
+                                    .withValues(alpha: 0.55)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.location_on,
+                                  size: 11, color: CantillanaTheme.dorado),
+                              SizedBox(width: 3),
+                              Text('Ver mapa',
+                                  style: TextStyle(
+                                      color: CantillanaTheme.dorado,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
+                      const SizedBox(width: 6),
+                    ],
 
-                  const Icon(Icons.chevron_right,
-                      size: 18, color: Colors.white38),
-                ],
+                    if (incident.comentarios.isNotEmpty) ...[
+                      const Icon(Icons.comment_outlined,
+                          size: 14, color: Colors.white38),
+                      const SizedBox(width: 3),
+                      Text(incident.comentarios.length.toString(),
+                          style: const TextStyle(
+                              color: Colors.white38, fontSize: 11)),
+                      const SizedBox(width: 6),
+                    ],
+
+                    // ── Botón eliminar (solo admin) ───────────────────
+                    if (onDelete != null) ...[
+                      GestureDetector(
+                        onTap: onDelete,
+                        behavior: HitTestBehavior.opaque,
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: Icon(Icons.delete_outline,
+                              size: 16, color: CantillanaTheme.rojo),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+
+                    const Icon(Icons.chevron_right,
+                        size: 18, color: Colors.white38),
+                  ],
+                ),
               ),
             ],
           ),
@@ -765,12 +774,16 @@ class _EstadoBadge extends StatelessWidget {
         children: [
           Icon(icon, size: 11, color: color),
           const SizedBox(width: 4),
-          Text(
-            estado.name == 'en_proceso'
-                ? 'En Proceso'
-                : estado.name.capitalize!,
-            style: TextStyle(
-                color: color, fontSize: 10, fontWeight: FontWeight.bold),
+          Flexible(
+            child: Text(
+              estado.name == 'en_proceso'
+                  ? 'En Proceso'
+                  : estado.name.capitalize!,
+              style: TextStyle(
+                  color: color, fontSize: 10, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
